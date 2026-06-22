@@ -2,10 +2,9 @@ import * as vscode from 'vscode';
 import type { AIXRouterModelConfig } from './types';
 
 const SECTION = 'magicrouter';
-const LEGACY_SECTION = 'aixrouter-copilot';
 
 export function getBaseUrl(): string {
-  return trimTrailingSlash(getConfiguredString('baseUrl', ''));
+  return trimTrailingSlash(getConfig().get('baseUrl', ''));
 }
 
 export function hasBaseUrl(): boolean {
@@ -44,31 +43,30 @@ export async function setBaseUrl(): Promise<boolean> {
 
 export function getPinnedModels(): AIXRouterModelConfig[] {
   const models = getConfig().get<AIXRouterModelConfig[]>('models', []);
-  const legacyModels = getLegacyConfig().get<AIXRouterModelConfig[]>('models', []);
-  return (models.length > 0 ? models : legacyModels).filter((model) => model.id);
+  return models.filter((model) => model.id);
 }
 
 export function getMaxTokens(): number | undefined {
-  const value = getConfiguredNumber('maxTokens', 0);
+  const value = getConfig().get('maxTokens', 0);
   return value > 0 ? value : undefined;
 }
 
 export function getTemperature(): number | undefined {
-  const value = getConfig().get<number | null>('temperature', getLegacyConfig().get<number | null>('temperature', null));
+  const value = getConfig().get<number | null>('temperature', null);
   return typeof value === 'number' ? value : undefined;
 }
 
 export function getReasoningEffort(): 'low' | 'medium' | 'high' | 'max' {
-  return getConfig().get<'low' | 'medium' | 'high' | 'max'>('reasoningEffort', getLegacyConfig().get<'low' | 'medium' | 'high' | 'max'>('reasoningEffort', 'high'));
+  return getConfig().get<'low' | 'medium' | 'high' | 'max'>('reasoningEffort', 'high');
 }
 
 export function getDebugEnabled(): boolean {
-  return getConfig().get('debug', getLegacyConfig().get('debug', false));
+  return getConfig().get('debug', false);
 }
 
 export function onConfigChanged(listener: () => void): vscode.Disposable {
   return vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration(SECTION) || event.affectsConfiguration(LEGACY_SECTION)) {
+    if (event.affectsConfiguration(SECTION)) {
       listener();
     }
   });
@@ -80,20 +78,6 @@ export function openSettings(): Thenable<unknown> {
 
 function getConfig(): vscode.WorkspaceConfiguration {
   return vscode.workspace.getConfiguration(SECTION);
-}
-
-function getLegacyConfig(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration(LEGACY_SECTION);
-}
-
-function getConfiguredString(key: string, defaultValue: string): string {
-  const value = getConfig().get<string>(key, defaultValue);
-  return value || getLegacyConfig().get<string>(key, defaultValue);
-}
-
-function getConfiguredNumber(key: string, defaultValue: number): number {
-  const value = getConfig().get<number>(key, defaultValue);
-  return value !== defaultValue ? value : getLegacyConfig().get<number>(key, defaultValue);
 }
 
 function trimTrailingSlash(value: string): string {
