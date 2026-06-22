@@ -1,5 +1,7 @@
 # 魔法路由（Magic Router for Copilot）
 
+[English](README.md) | [简体中文](README.zh-cn.md)
+
 在 GitHub Copilot Chat 模型选择器中直接使用魔法路由支持的模型，无需离开 Copilot Agent 模式。
 
 喜欢魔法路由的统一中转能力，但不想放弃 GitHub Copilot 的 Agent 模式、工具调用、Instructions、MCP 和成熟的交互体验？本扩展将 OpenAI 兼容模型接入 Copilot Chat 模型选择器，支持视觉输入、思考模式和自带 API Key。

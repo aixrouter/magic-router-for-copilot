@@ -1,5 +1,7 @@
 # Magic Router for Copilot
 
+[English](README.md) | [简体中文](README.zh-cn.md)
+
 Use Magic Router models directly from the GitHub Copilot Chat model picker.
 
 Magic Router for Copilot does not replace Copilot Chat or add a separate chat UI. It registers Magic Router as a Copilot language model provider, so you can keep using Copilot Chat, Agent mode, workspace context, instructions, and tools while sending model requests through your own OpenAI-compatible router endpoint.
