@@ -1,7 +1,7 @@
 {
   "name": "aixrouter-for-copilot",
-  "displayName": "AIX Router for Copilot",
-  "description": "Use AIX Router models directly from the GitHub Copilot Chat model picker. BYOK, vision-capable models, thinking mode, and agent tools.",
+  "displayName": "Magic Router for Copilot",
+  "description": "Use Magic Router models directly from the GitHub Copilot Chat model picker. BYOK, vision-capable models, thinking mode, and agent tools.",
   "version": "0.0.1",
   "publisher": "aixrouter",
   "icon": "resources/icon.png",
@@ -24,6 +24,8 @@
   ],
   "keywords": [
     "aixrouter",
+    "magic router",
+    "magic-router",
     "copilot",
     "github copilot",
     "agent",
@@ -40,38 +42,38 @@
     "languageModelChatProviders": [
       {
         "vendor": "aixrouter",
-        "displayName": "AIX Router"
+        "displayName": "Magic Router"
       }
     ],
     "commands": [
       {
         "command": "aixrouter-copilot.setBaseUrl",
-        "title": "AIX Router: Set Base URL"
+        "title": "Magic Router: Set Base URL"
       },
       {
         "command": "aixrouter-copilot.setApiKey",
-        "title": "AIX Router: Set API Key"
+        "title": "Magic Router: Set API Key"
       },
       {
         "command": "aixrouter-copilot.clearApiKey",
-        "title": "AIX Router: Clear API Key"
+        "title": "Magic Router: Clear API Key"
       },
       {
         "command": "aixrouter-copilot.refreshModels",
-        "title": "AIX Router: Refresh Models"
+        "title": "Magic Router: Refresh Models"
       },
       {
         "command": "aixrouter-copilot.openSettings",
-        "title": "AIX Router: Open Settings"
+        "title": "Magic Router: Open Settings"
       }
     ],
     "configuration": {
-      "title": "AIX Router for Copilot",
+      "title": "Magic Router for Copilot",
       "properties": {
         "aixrouter-copilot.baseUrl": {
           "type": "string",
           "default": "",
-          "description": "OpenAI-compatible AIX Router base URL, for example https://api.example.com/openai/v1."
+          "description": "OpenAI-compatible Magic Router base URL, for example https://api.example.com/openai/v1."
         },
         "aixrouter-copilot.models": {
           "type": "array",
@@ -85,7 +87,7 @@
             "properties": {
               "id": {
                 "type": "string",
-                "description": "AIX Router API model id."
+                "description": "Magic Router API model id."
               },
               "name": {
                 "type": "string",
@@ -152,7 +154,7 @@
         "aixrouter-copilot.debug": {
           "type": "boolean",
           "default": false,
-          "description": "Write request and stream diagnostics to the AIX Router output channel. Prompt text is not logged."
+          "description": "Write request and stream diagnostics to the Magic Router output channel. Prompt text is not logged."
         }
       }
     }

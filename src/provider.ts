@@ -90,10 +90,10 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
     const apiKey = await this.auth.getApiKey();
     const baseUrl = getBaseUrl();
     if (!baseUrl) {
-      throw new Error('AIX Router Base URL is not configured. Run "AIX Router: Set Base URL" first.');
+      throw new Error('Magic Router Base URL is not configured. Run "Magic Router: Set Base URL" first.');
     }
     if (!apiKey) {
-      throw new Error('AIX Router API Key is not configured. Run "AIX Router: Set API Key" first.');
+      throw new Error('Magic Router API Key is not configured. Run "Magic Router: Set API Key" first.');
     }
 
     const model = this.resolveModel(modelInfo.id);
@@ -143,10 +143,10 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
 
     try {
       const models = await new AIXRouterClient(baseUrl, apiKey).listModels(abort.signal);
-      this.logger.info(`Loaded ${models.length} AIX Router model(s).`);
+      this.logger.info(`Loaded ${models.length} Magic Router model(s).`);
       return models;
     } catch (error) {
-      this.logger.error('Failed to load models from AIX Router', error);
+      this.logger.error('Failed to load models from Magic Router', error);
       return [];
     } finally {
       disposable.dispose();
@@ -195,8 +195,8 @@ function toChatInfo(model: AIXRouterModelConfig, hasKey: boolean, hasUrl: boolea
     version: model.version || 'aixrouter',
     maxInputTokens: model.maxInputTokens ?? 128000,
     maxOutputTokens: model.maxOutputTokens ?? 8192,
-    detail: configured ? 'AIX Router BYOK' : getSetupDetail(hasUrl, hasKey),
-    tooltip: configured ? `${model.id} via AIX Router` : getSetupDetail(hasUrl, hasKey),
+    detail: configured ? 'Magic Router BYOK' : getSetupDetail(hasUrl, hasKey),
+    tooltip: configured ? `${model.id} via Magic Router` : getSetupDetail(hasUrl, hasKey),
     isBYOK: true,
     isUserSelectable: configured,
     statusIcon: configured ? undefined : new vscode.ThemeIcon('warning'),
@@ -212,7 +212,7 @@ function toChatInfo(model: AIXRouterModelConfig, hasKey: boolean, hasUrl: boolea
 function toSetupChatInfo(hasUrl: boolean, hasKey: boolean): ModelPickerInfo {
   return {
     id: 'setup-required',
-    name: 'Configure AIX Router',
+    name: 'Configure Magic Router',
     family: 'aixrouter',
     version: 'setup',
     maxInputTokens: 1,
@@ -231,12 +231,12 @@ function toSetupChatInfo(hasUrl: boolean, hasKey: boolean): ModelPickerInfo {
 
 function getSetupDetail(hasUrl: boolean, hasKey: boolean): string {
   if (!hasUrl && !hasKey) {
-    return 'Run AIX Router: Set Base URL, then AIX Router: Set API Key';
+    return 'Run Magic Router: Set Base URL, then Magic Router: Set API Key';
   }
   if (!hasUrl) {
-    return 'Run AIX Router: Set Base URL';
+    return 'Run Magic Router: Set Base URL';
   }
-  return 'Run AIX Router: Set API Key';
+  return 'Run Magic Router: Set API Key';
 }
 
 function toConfigurationSchema(model: AIXRouterModelConfig): { configurationSchema?: object } {

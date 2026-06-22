@@ -43,7 +43,7 @@ export class AIXRouterClient {
     });
 
     if (!response.ok) {
-      throw await createHttpError('Failed to load AIX Router models', response);
+      throw await createHttpError('Failed to load Magic Router models', response);
     }
 
     const json = await response.json() as { data?: RawModel[] };
@@ -71,11 +71,11 @@ export class AIXRouterClient {
     });
 
     if (!response.ok) {
-      throw await createHttpError('AIX Router chat completion failed', response);
+      throw await createHttpError('Magic Router chat completion failed', response);
     }
 
     if (!response.body) {
-      throw new Error('AIX Router response body is empty.');
+      throw new Error('Magic Router response body is empty.');
     }
 
     const reader = response.body.getReader();

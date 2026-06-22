@@ -1,12 +1,12 @@
-# AIX Router for Copilot
+# Magic Router for Copilot
 
-Use AIX Router models directly from the GitHub Copilot Chat model picker.
+Use Magic Router models directly from the GitHub Copilot Chat model picker.
 
-AIX Router for Copilot does not replace Copilot Chat or add a separate chat UI. It registers AIX Router as a Copilot language model provider, so you can keep using Copilot Chat, Agent mode, workspace context, instructions, and tools while sending model requests through your own OpenAI-compatible router endpoint.
+Magic Router for Copilot does not replace Copilot Chat or add a separate chat UI. It registers Magic Router as a Copilot language model provider, so you can keep using Copilot Chat, Agent mode, workspace context, instructions, and tools while sending model requests through your own OpenAI-compatible router endpoint.
 
 ## Features
 
-- Adds AIX Router models to the Copilot Chat model picker.
+- Adds Magic Router models to the Copilot Chat model picker.
 - Uses your own API key, stored in VS Code SecretStorage.
 - Prompts for Base URL and API key on first setup.
 - Loads models from `{baseUrl}/models`.
@@ -18,23 +18,23 @@ AIX Router for Copilot does not replace Copilot Chat or add a separate chat UI. 
 
 - VS Code 1.116 or newer.
 - GitHub Copilot Chat installed and signed in.
-- An OpenAI-compatible AIX Router endpoint and API key.
+- An OpenAI-compatible Magic Router endpoint and API key.
 
 ## Quick Start
 
 1. Install the extension.
-2. Run `AIX Router: Set Base URL`.
+2. Run `Magic Router: Set Base URL`.
 3. Enter your OpenAI-compatible Base URL, for example `https://api.example.com/openai/v1`.
-4. Run `AIX Router: Set API Key`.
-5. Open Copilot Chat and choose an AIX Router model from the model picker.
+4. Run `Magic Router: Set API Key`.
+5. Open Copilot Chat and choose a Magic Router model from the model picker.
 
 ## Commands
 
-- `AIX Router: Set Base URL`
-- `AIX Router: Set API Key`
-- `AIX Router: Clear API Key`
-- `AIX Router: Refresh Models`
-- `AIX Router: Open Settings`
+- `Magic Router: Set Base URL`
+- `Magic Router: Set API Key`
+- `Magic Router: Clear API Key`
+- `Magic Router: Refresh Models`
+- `Magic Router: Open Settings`
 
 ## Settings
 

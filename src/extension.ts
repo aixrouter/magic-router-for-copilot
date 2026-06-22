@@ -28,7 +28,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     vscode.commands.registerCommand('aixrouter-copilot.refreshModels', () => {
       provider.refreshModelPicker();
-      vscode.window.showInformationMessage('AIX Router model list refreshed.');
+      vscode.window.showInformationMessage('Magic Router model list refreshed.');
     }),
     vscode.commands.registerCommand('aixrouter-copilot.openSettings', () => openSettings()),
     vscode.lm.registerLanguageModelChatProvider('aixrouter', provider),
@@ -60,7 +60,7 @@ async function promptForInitialConfiguration(
   }
 
   const action = await vscode.window.showInformationMessage(
-    'Configure AIX Router for Copilot to add models to Copilot Chat.',
+    'Configure Magic Router for Copilot to add models to Copilot Chat.',
     'Configure',
     'Later',
   );
