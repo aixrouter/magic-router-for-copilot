@@ -79,8 +79,8 @@
 ## 开发
 
 ```bash
-npm install
-npm run compile
+pnpm install
+pnpm run compile
 ```
 
 然后在 VS Code 中按 `F5` 启动 Extension Development Host。

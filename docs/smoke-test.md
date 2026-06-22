@@ -37,7 +37,7 @@ Use this checklist before publishing a VSIX or Marketplace release.
 
 ## Package
 
-- Run `npm run compile`.
-- Run `npm run package`.
+- Run `pnpm run compile`.
+- Run `pnpm run package`.
 - Confirm the generated VSIX has the expected version and includes `out/extension.js`.
 - Confirm the extension icon does not trigger a large-file warning during packaging.

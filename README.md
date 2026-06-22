@@ -58,9 +58,9 @@ Common Base URLs:
 ## Development
 
 ```bash
-npm install
-npm run compile
-npm run package
+pnpm install
+pnpm run compile
+pnpm run package
 ```
 
 Press `F5` in VS Code to launch an Extension Development Host.
