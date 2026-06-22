@@ -28,6 +28,13 @@ Magic Router for Copilot does not replace Copilot Chat or add a separate chat UI
 4. Run `Magic Router: Set API Key`.
 5. Open Copilot Chat and choose a Magic Router model from the model picker.
 
+Common Base URLs:
+
+| Provider | Base URL |
+| --- | --- |
+| AIXRouter | `https://api.aixrouter.com/openai/v1` |
+| AgileRouter | `https://api.agilerouter.com/openai/v1` |
+
 ## Commands
 
 - `Magic Router: Set Base URL`

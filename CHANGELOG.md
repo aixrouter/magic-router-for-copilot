@@ -1,8 +1,14 @@
 # Changelog
 
-## 0.0.1
+## 0.1.0
 
-- Initial release.
-- Add Magic Router models to the GitHub Copilot Chat model picker.
-- Support BYOK configuration with VS Code SecretStorage.
-- Support OpenAI-compatible streaming chat completions, tool calls, image input, reasoning output, model costs, and Copilot model configuration options.
+- Initial public preview.
+- Add Magic Router as a GitHub Copilot Chat language model provider.
+- Add BYOK setup with Base URL and API Key commands.
+- Store API keys in VS Code SecretStorage.
+- Load models dynamically from `{baseUrl}/models`.
+- Send OpenAI-compatible streaming chat completions to `{baseUrl}/chat/completions`.
+- Support Copilot Agent mode tool calls, image input, and reasoning output.
+- Add model picker metadata for vision, thinking, context windows, and model costs.
+- Add optional public metadata enrichment for AIXRouter and AgileRouter model catalogs.
+- Add first-run setup guidance and clearer HTTP error messages.

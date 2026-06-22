@@ -28,6 +28,13 @@
 4. 打开 Copilot Chat，点击模型选择器。
 5. 选择 Magic Router 提供的模型，开始使用 Agent 模式。
 
+常用 Base URL：
+
+| 服务 | Base URL |
+| --- | --- |
+| AIXRouter | `https://api.aixrouter.com/openai/v1` |
+| AgileRouter | `https://api.agilerouter.com/openai/v1` |
+
 ## 设置项
 
 | 设置项 | 默认值 | 说明 |
