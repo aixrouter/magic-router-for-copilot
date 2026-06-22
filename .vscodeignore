@@ -1,0 +1,8 @@
+.git/**
+.agents/**
+.codex/**
+.vscode/**
+src/**
+tsconfig.json
+node_modules/**
+*.vsix

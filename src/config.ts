@@ -1,0 +1,84 @@
+import * as vscode from 'vscode';
+import type { AIXRouterModelConfig } from './types';
+
+const SECTION = 'aixrouter-copilot';
+
+export function getBaseUrl(): string {
+  return trimTrailingSlash(getConfig().get('baseUrl', ''));
+}
+
+export function hasBaseUrl(): boolean {
+  return getBaseUrl().length > 0;
+}
+
+export async function setBaseUrl(): Promise<boolean> {
+  const value = await vscode.window.showInputBox({
+    title: 'AIX Router Base URL',
+    prompt: 'Enter your OpenAI-compatible base URL, for example https://api.example.com/openai/v1.',
+    value: getBaseUrl(),
+    ignoreFocusOut: true,
+    validateInput: (input) => {
+      const trimmed = input.trim();
+      if (!trimmed) {
+        return 'Base URL is required.';
+      }
+      try {
+        const url = new URL(trimmed);
+        return url.protocol === 'https:' || url.protocol === 'http:'
+          ? undefined
+          : 'Base URL must start with http:// or https://.';
+      } catch {
+        return 'Enter a valid URL.';
+      }
+    },
+  });
+
+  if (value === undefined) {
+    return false;
+  }
+
+  await getConfig().update('baseUrl', trimTrailingSlash(value.trim()), vscode.ConfigurationTarget.Global);
+  return true;
+}
+
+export function getPinnedModels(): AIXRouterModelConfig[] {
+  return getConfig().get<AIXRouterModelConfig[]>('models', []).filter((model) => model.id);
+}
+
+export function getMaxTokens(): number | undefined {
+  const value = getConfig().get('maxTokens', 0);
+  return value > 0 ? value : undefined;
+}
+
+export function getTemperature(): number | undefined {
+  const value = getConfig().get<number | null>('temperature', null);
+  return typeof value === 'number' ? value : undefined;
+}
+
+export function getReasoningEffort(): 'low' | 'medium' | 'high' | 'max' {
+  return getConfig().get<'low' | 'medium' | 'high' | 'max'>('reasoningEffort', 'high');
+}
+
+export function getDebugEnabled(): boolean {
+  return getConfig().get('debug', false);
+}
+
+export function onConfigChanged(listener: () => void): vscode.Disposable {
+  return vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration(SECTION)) {
+      listener();
+    }
+  });
+}
+
+export function openSettings(): Thenable<unknown> {
+  return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${vscode.extensions.getExtension('aixrouter.aixrouter-copilot')?.id ?? SECTION}`);
+}
+
+function getConfig(): vscode.WorkspaceConfiguration {
+  return vscode.workspace.getConfiguration(SECTION);
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, '');
+}
