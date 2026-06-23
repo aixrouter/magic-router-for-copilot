@@ -77,7 +77,7 @@ export function onConfigChanged(listener: () => void): vscode.Disposable {
 }
 
 export function openSettings(): Thenable<unknown> {
-  return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${vscode.extensions.getExtension('aixrouter.aixrouter')?.id ?? SECTION}`);
+  return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${vscode.extensions.getExtension('aixrouter.aixrouter-for-copilot')?.id ?? SECTION}`);
 }
 
 function getConfig(): vscode.WorkspaceConfiguration {
