@@ -105,6 +105,12 @@ export class AIXRouterClient {
       throw await createHttpError('AIXRouter chat completion failed', response);
     }
 
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.includes('text/event-stream')) {
+      await processFullResponse(response, handlers);
+      return;
+    }
+
     if (!response.body) {
       throw new Error('AIXRouter response body is empty.');
     }
@@ -113,6 +119,7 @@ export class AIXRouterClient {
     const decoder = new TextDecoder();
     const toolCalls = new Map<number, ToolCallAccumulator>();
     let buffer = '';
+    let preview = '';
     let emittedText = false;
 
     while (true) {
@@ -121,13 +128,20 @@ export class AIXRouterClient {
         break;
       }
 
-      buffer += decoder.decode(value, { stream: true });
+      const chunk = decoder.decode(value, { stream: true });
+      preview = appendPreview(preview, chunk);
+      buffer += chunk;
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? '';
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data:')) {
+        if (!trimmed) {
+          continue;
+        }
+
+        if (!trimmed.startsWith('data:')) {
+          emittedText = processResponseData(trimmed, toolCalls, handlers) || emittedText;
           continue;
         }
 
@@ -135,7 +149,7 @@ export class AIXRouterClient {
         if (data === '[DONE]') {
           const emittedTools = flushToolCalls(toolCalls, handlers);
           if (!emittedText && !emittedTools) {
-            throw new Error('AIXRouter response did not contain any assistant text. Check the selected model and endpoint compatibility.');
+            throw emptyResponseError(preview);
           }
           return;
         }
@@ -150,7 +164,7 @@ export class AIXRouterClient {
 
     const emittedTools = flushToolCalls(toolCalls, handlers);
     if (!emittedText && !emittedTools) {
-      throw new Error('AIXRouter response did not contain any assistant text. Check the selected model and endpoint compatibility.');
+      throw emptyResponseError(preview || buffer);
     }
   }
 
@@ -159,6 +173,29 @@ export class AIXRouterClient {
       Authorization: `Bearer ${this.apiKey}`,
     };
   }
+}
+
+async function processFullResponse(
+  response: Response,
+  handlers: StreamHandlers,
+): Promise<void> {
+  const body = await response.text();
+  const toolCalls = new Map<number, ToolCallAccumulator>();
+  const emittedText = processResponseData(body.trim(), toolCalls, handlers);
+  const emittedTools = flushToolCalls(toolCalls, handlers);
+  if (!emittedText && !emittedTools) {
+    throw emptyResponseError(body);
+  }
+}
+
+function appendPreview(current: string, chunk: string): string {
+  return (current + chunk).slice(0, 2000);
+}
+
+function emptyResponseError(preview: string): Error {
+  const normalized = preview.replace(/\s+/g, ' ').trim().slice(0, 800);
+  const suffix = normalized ? ` Response preview: ${normalized}` : '';
+  return new Error(`AIXRouter response did not contain any assistant text or tool call.${suffix}`);
 }
 
 function processResponseData(
