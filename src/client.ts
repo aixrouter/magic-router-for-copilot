@@ -211,12 +211,10 @@ function toModelConfig(model: RawModel): AIXRouterModelConfig | undefined {
     model.max_context_length,
   );
   const maxOutputTokens = numberFrom(model.maxOutputTokens, model.max_output_tokens);
-  const family = firstString(model.modelVendorName, model.vendor, model.family);
-
   return {
     id: model.id,
     name: model.name || model.id,
-    family: isPlaceholderOwner(model.owned_by) ? family || inferFamily(model.id) : model.owned_by,
+    family: inferFamily(model.id),
     version: 'aixrouter',
     maxInputTokens: maxInputTokens ?? 128000,
     maxOutputTokens: maxOutputTokens ?? 8192,
@@ -269,9 +267,6 @@ function inferFamily(id: string): string {
   return family || 'aixrouter';
 }
 
-function isPlaceholderOwner(value: string | undefined): boolean {
-  return !value || value === 'kredo' || value === 'aixrouter';
-}
 
 function getModelApiKind(modelId: string): AIXRouterApiKind {
   const normalized = modelId.toLowerCase();
@@ -395,14 +390,6 @@ function numberFrom(...values: unknown[]): number | undefined {
   return undefined;
 }
 
-function firstString(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-  }
-  return undefined;
-}
 
 function booleanFrom(...values: unknown[]): boolean | undefined {
   for (const value of values) {
