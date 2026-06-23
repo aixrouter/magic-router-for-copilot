@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { AIXRouterModelConfig } from './types';
 
-const SECTION = 'magicrouter';
+const SECTION = 'aixrouter';
 
 export function getBaseUrl(): string {
   return trimTrailingSlash(getConfig().get('baseUrl', ''));
@@ -13,7 +13,7 @@ export function hasBaseUrl(): boolean {
 
 export async function setBaseUrl(): Promise<boolean> {
   const value = await vscode.window.showInputBox({
-    title: 'Magic Router Base URL',
+    title: 'AIXRouter Base URL',
     prompt: 'Enter your OpenAI-compatible base URL, for example https://api.example.com/openai/v1.',
     value: getBaseUrl(),
     ignoreFocusOut: true,
@@ -77,7 +77,7 @@ export function onConfigChanged(listener: () => void): vscode.Disposable {
 }
 
 export function openSettings(): Thenable<unknown> {
-  return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${vscode.extensions.getExtension('aixrouter.magic-router-for-copilot')?.id ?? SECTION}`);
+  return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${vscode.extensions.getExtension('aixrouter.aixrouter')?.id ?? SECTION}`);
 }
 
 function getConfig(): vscode.WorkspaceConfiguration {

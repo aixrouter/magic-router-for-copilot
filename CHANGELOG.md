@@ -3,7 +3,7 @@
 ## 0.1.0
 
 - Initial public preview.
-- Add Magic Router as a GitHub Copilot Chat language model provider.
+- Add AIXRouter as a GitHub Copilot Chat language model provider.
 - Add BYOK setup with Base URL and API Key commands.
 - Store API keys in VS Code SecretStorage.
 - Load models dynamically from `{baseUrl}/models`.

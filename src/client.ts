@@ -56,7 +56,7 @@ export class AIXRouterClient {
     });
 
     if (!response.ok) {
-      throw await createHttpError('Failed to load Magic Router models', response);
+      throw await createHttpError('Failed to load AIXRouter models', response);
     }
 
     const json = await response.json() as { data?: RawModel[] };
@@ -86,11 +86,11 @@ export class AIXRouterClient {
     });
 
     if (!response.ok) {
-      throw await createHttpError('Magic Router chat completion failed', response);
+      throw await createHttpError('AIXRouter chat completion failed', response);
     }
 
     if (!response.body) {
-      throw new Error('Magic Router response body is empty.');
+      throw new Error('AIXRouter response body is empty.');
     }
 
     const reader = response.body.getReader();
@@ -214,7 +214,7 @@ function toModelConfig(model: RawModel): AIXRouterModelConfig | undefined {
     id: model.id,
     name: model.name || model.id,
     family: isPlaceholderOwner(model.owned_by) ? family || inferFamily(model.id) : model.owned_by,
-    version: 'magicrouter',
+    version: 'aixrouter',
     maxInputTokens: maxInputTokens ?? 128000,
     maxOutputTokens: maxOutputTokens ?? 8192,
     toolCalling: booleanFrom(
@@ -263,7 +263,7 @@ function toApiPricing(model: RawModel): AIXRouterModelConfig['pricing'] {
 
 function inferFamily(id: string): string {
   const [family] = id.split(/[/:.-]/);
-  return family || 'magicrouter';
+  return family || 'aixrouter';
 }
 
 function isPlaceholderOwner(value: string | undefined): boolean {
@@ -390,7 +390,7 @@ function friendlyStatusMessage(status: number): string | undefined {
     return 'The request was rejected. Check the selected model and request options.';
   }
   if (status === 401) {
-    return 'The API key is missing or invalid. Run "Magic Router: Set API Key".';
+    return 'The API key is missing or invalid. Run "AIXRouter: Set API Key".';
   }
   if (status === 402) {
     return 'The account has insufficient balance or quota.';
@@ -399,7 +399,7 @@ function friendlyStatusMessage(status: number): string | undefined {
     return 'The API key does not have permission to access this endpoint or model.';
   }
   if (status === 404) {
-    return 'The Base URL or model endpoint was not found. Check "Magic Router: Set Base URL".';
+    return 'The Base URL or model endpoint was not found. Check "AIXRouter: Set Base URL".';
   }
   if (status === 408) {
     return 'The request timed out. Try again or check your network/proxy.';
