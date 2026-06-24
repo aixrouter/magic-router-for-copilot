@@ -8,7 +8,6 @@ import {
   getPublicModelMetadataEnabled,
   getReasoningEffort,
   getTemperature,
-  onConfigChanged,
 } from '../config.js';
 import { AIXRouterClient } from '../client/aixrouterClient.js';
 import { convertMessages, convertTools, estimateTokenCount, summarizeMessageParts } from '../convert.js';
@@ -43,10 +42,6 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
 
   dispose(): void {
     this.onDidChangeEmitter.dispose();
-  }
-
-  registerConfigWatcher(context: vscode.ExtensionContext): void {
-    context.subscriptions.push(onConfigChanged(() => this.refreshModelPicker()));
   }
 
   refreshModelPicker(): void {
