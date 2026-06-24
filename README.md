@@ -39,7 +39,7 @@ Common Base URLs:
 
 ## API Routing
 
-Magic Router treats `magicrouter.baseUrl` as the gateway root. With the default `https://api.aixrouter.com`, model discovery uses `https://api.aixrouter.com/openai/v1/models`. Claude requests use `https://api.aixrouter.com/claude/v1/messages` with the Anthropic Messages payload shape. All other chat requests use `https://api.aixrouter.com/openai/v1/chat/completions`.
+Magic Router treats `aixrouter.baseUrl` as the gateway root. With the default `https://api.aixrouter.com`, model discovery uses `https://api.aixrouter.com/openai/v1/models`. Claude requests use `https://api.aixrouter.com/claude/v1/messages` with the Anthropic Messages payload shape. All other chat requests use `https://api.aixrouter.com/openai/v1/chat/completions`.
 
 ## Commands
 
@@ -53,13 +53,13 @@ Magic Router treats `magicrouter.baseUrl` as the gateway root. With the default 
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `magicrouter.baseUrl` | `https://api.aixrouter.com` | Magic Router gateway Base URL. Claude requests use `/claude/v1/messages`; other chat requests use `/openai/v1/chat/completions`. |
-| `magicrouter.models` | `[]` | Optional pinned model list. Leave empty to load from `/openai/v1/models`. |
-| `magicrouter.maxTokens` | `0` | Maximum completion tokens. `0` means provider default. |
-| `magicrouter.temperature` | `null` | Optional temperature. |
-| `magicrouter.reasoningEffort` | `high` | Default reasoning effort for models that expose thinking mode. |
-| `magicrouter.enrichPublicModelMetadata` | `true` | Enrich cost, multimodal, and context metadata from the public model catalog for AIXRouter and AgileRouter base URLs. |
-| `magicrouter.debug` | `false` | Write request diagnostics to the output channel. Prompt text is not logged. |
+| `aixrouter.baseUrl` | `https://api.aixrouter.com` | Magic Router gateway Base URL. Claude requests use `/claude/v1/messages`; other chat requests use `/openai/v1/chat/completions`. |
+| `aixrouter.models` | `[]` | Optional pinned model list. Leave empty to load from `/openai/v1/models`. |
+| `aixrouter.maxTokens` | `0` | Maximum completion tokens. `0` means provider default. |
+| `aixrouter.temperature` | `null` | Optional temperature. |
+| `aixrouter.reasoningEffort` | `high` | Default reasoning effort for models that expose thinking mode. |
+| `aixrouter.enrichPublicModelMetadata` | `true` | Enrich cost, multimodal, and context metadata from the public model catalog for AIXRouter and AgileRouter base URLs. |
+| `aixrouter.debug` | `false` | Write request diagnostics to the output channel. Prompt text is not logged. |
 
 ## Development
 

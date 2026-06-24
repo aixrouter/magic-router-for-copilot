@@ -175,11 +175,11 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
       'Open Settings',
     ).then(async (action) => {
       if (action === 'Set API Key') {
-        await vscode.commands.executeCommand('magicrouter.setApiKey');
+        await vscode.commands.executeCommand('aixrouter.setApiKey');
       } else if (action === 'Set Base URL') {
-        await vscode.commands.executeCommand('magicrouter.setBaseUrl');
+        await vscode.commands.executeCommand('aixrouter.setBaseUrl');
       } else if (action === 'Open Settings') {
-        await vscode.commands.executeCommand('magicrouter.openSettings');
+        await vscode.commands.executeCommand('aixrouter.openSettings');
       }
     });
   }
@@ -224,8 +224,8 @@ function toChatInfo(model: AIXRouterModelConfig, hasKey: boolean, hasUrl: boolea
   return {
     id: model.id,
     name: model.name || model.id,
-    family: model.family || 'magicrouter',
-    version: model.version || 'magicrouter',
+    family: model.family || 'aixrouter',
+    version: model.version || 'aixrouter',
     maxInputTokens: model.maxInputTokens ?? 128000,
     maxOutputTokens: model.maxOutputTokens ?? 8192,
     detail: configured ? 'Magic Router BYOK' : getSetupDetail(hasUrl, hasKey),
@@ -255,7 +255,7 @@ function toSetupChatInfo(hasUrl: boolean, hasKey: boolean): ModelPickerInfo {
   return {
     id: 'setup-required',
     name: 'Configure Magic Router',
-    family: 'magicrouter',
+    family: 'aixrouter',
     version: 'setup',
     maxInputTokens: 1,
     maxOutputTokens: 1,

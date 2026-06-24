@@ -4,7 +4,7 @@ import { hasBaseUrl, openSettings, setBaseUrl } from './config';
 import { Logger } from './logger';
 import { AIXRouterChatProvider } from './provider';
 
-const INITIAL_SETUP_PROMPT_KEY = 'magicrouter.initialSetupPromptShown';
+const INITIAL_SETUP_PROMPT_KEY = 'aixrouter.initialSetupPromptShown';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const logger = new Logger();
@@ -16,24 +16,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     logger,
     provider,
-    vscode.commands.registerCommand('magicrouter.setBaseUrl', async () => {
+    vscode.commands.registerCommand('aixrouter.setBaseUrl', async () => {
       await setBaseUrl();
       provider.refreshModelPicker();
     }),
-    vscode.commands.registerCommand('magicrouter.setApiKey', async () => {
+    vscode.commands.registerCommand('aixrouter.setApiKey', async () => {
       await auth.setApiKey();
       provider.refreshModelPicker();
     }),
-    vscode.commands.registerCommand('magicrouter.clearApiKey', async () => {
+    vscode.commands.registerCommand('aixrouter.clearApiKey', async () => {
       await auth.clearApiKey();
       provider.refreshModelPicker();
     }),
-    vscode.commands.registerCommand('magicrouter.refreshModels', () => {
+    vscode.commands.registerCommand('aixrouter.refreshModels', () => {
       provider.refreshModelPicker();
       vscode.window.showInformationMessage('Magic Router model list refreshed.');
     }),
-    vscode.commands.registerCommand('magicrouter.openSettings', () => openSettings()),
-    vscode.lm.registerLanguageModelChatProvider('magicrouter', provider),
+    vscode.commands.registerCommand('aixrouter.openSettings', () => openSettings()),
+    vscode.lm.registerLanguageModelChatProvider('aixrouter', provider),
   );
 
   await activateCopilotChat(logger);

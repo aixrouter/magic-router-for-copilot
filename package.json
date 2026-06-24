@@ -1,5 +1,5 @@
 {
-  "name": "magic-router-for-copilot",
+  "name": "aixrouter-for-copilot",
   "displayName": "Magic Router for Copilot",
   "description": "Use Magic Router models directly from the GitHub Copilot Chat model picker. BYOK, vision-capable models, thinking mode, and agent tools.",
   "version": "0.1.4",
@@ -43,41 +43,41 @@
   "contributes": {
     "languageModelChatProviders": [
       {
-        "vendor": "magicrouter",
-        "displayName": "Magic Router"
+        "vendor": "aixrouter",
+        "displayName": "AIXRouter"
       }
     ],
     "commands": [
       {
-        "command": "magicrouter.setBaseUrl",
-        "title": "Magic Router: Set Base URL"
+        "command": "aixrouter.setBaseUrl",
+        "title": "AIXRouter: Set Base URL"
       },
       {
-        "command": "magicrouter.setApiKey",
-        "title": "Magic Router: Set API Key"
+        "command": "aixrouter.setApiKey",
+        "title": "AIXRouter: Set API Key"
       },
       {
-        "command": "magicrouter.clearApiKey",
-        "title": "Magic Router: Clear API Key"
+        "command": "aixrouter.clearApiKey",
+        "title": "AIXRouter: Clear API Key"
       },
       {
-        "command": "magicrouter.refreshModels",
-        "title": "Magic Router: Refresh Models"
+        "command": "aixrouter.refreshModels",
+        "title": "AIXRouter: Refresh Models"
       },
       {
-        "command": "magicrouter.openSettings",
-        "title": "Magic Router: Open Settings"
+        "command": "aixrouter.openSettings",
+        "title": "AIXRouter: Open Settings"
       }
     ],
     "configuration": {
-      "title": "Magic Router for Copilot",
+      "title": "AIXRouter for Copilot",
       "properties": {
-        "magicrouter.baseUrl": {
+        "aixrouter.baseUrl": {
           "type": "string",
           "default": "https://api.aixrouter.com",
           "description": "Magic Router gateway base URL. Claude chat requests use /claude/v1; other requests use /openai/v1."
         },
-        "magicrouter.models": {
+        "aixrouter.models": {
           "type": "array",
           "default": [],
           "markdownDescription": "Optional pinned model list. Leave empty to load from `/models`. Each item accepts `id`, `name`, `family`, `version`, `maxInputTokens`, `maxOutputTokens`, `toolCalling`, `vision`, and `thinking`.",
@@ -126,13 +126,13 @@
             }
           }
         },
-        "magicrouter.maxTokens": {
+        "aixrouter.maxTokens": {
           "type": "number",
           "default": 0,
           "minimum": 0,
           "description": "Maximum completion tokens. 0 means provider default."
         },
-        "magicrouter.temperature": {
+        "aixrouter.temperature": {
           "type": [
             "number",
             "null"
@@ -142,7 +142,7 @@
           "maximum": 2,
           "description": "Optional request temperature."
         },
-        "magicrouter.reasoningEffort": {
+        "aixrouter.reasoningEffort": {
           "type": "string",
           "default": "high",
           "enum": [
@@ -153,12 +153,12 @@
           ],
           "description": "Reasoning effort for models that support thinking mode."
         },
-        "magicrouter.enrichPublicModelMetadata": {
+        "aixrouter.enrichPublicModelMetadata": {
           "type": "boolean",
           "default": true,
           "description": "Enrich model metadata from the public Magic Router model catalog for supported AIXRouter and AgileRouter base URLs."
         },
-        "magicrouter.debug": {
+        "aixrouter.debug": {
           "type": "boolean",
           "default": false,
           "description": "Write request and stream diagnostics to the Magic Router output channel. Prompt text is not logged."

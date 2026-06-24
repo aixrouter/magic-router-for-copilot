@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-const SECRET_KEY = 'magicrouter.apiKey';
+const SECRET_KEY = 'aixrouter.apiKey';
 
 export class AuthStore {
   constructor(private readonly secrets: vscode.SecretStorage) {}

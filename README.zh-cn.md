@@ -41,25 +41,25 @@
 
 ## API 路由
 
-Magic Router 会把 `magicrouter.baseUrl` 视为网关根地址。默认 `https://api.aixrouter.com` 下，模型列表从 `https://api.aixrouter.com/openai/v1/models` 加载。Claude 请求使用 Anthropic Messages 格式发送到 `https://api.aixrouter.com/claude/v1/messages`，其他对话请求发送到 `https://api.aixrouter.com/openai/v1/chat/completions`。
+Magic Router 会把 `aixrouter.baseUrl` 视为网关根地址。默认 `https://api.aixrouter.com` 下，模型列表从 `https://api.aixrouter.com/openai/v1/models` 加载。Claude 请求使用 Anthropic Messages 格式发送到 `https://api.aixrouter.com/claude/v1/messages`，其他对话请求发送到 `https://api.aixrouter.com/openai/v1/chat/completions`。
 
 ## 设置项
 
 | 设置项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `magicrouter.baseUrl` | `https://api.aixrouter.com` | Magic Router 网关 Base URL。Claude 请求使用 `/claude/v1/messages`，其他对话请求使用 `/openai/v1/chat/completions` |
-| `magicrouter.models` | `[]` | 固定模型列表。留空时从 `/openai/v1/models` 动态读取 |
-| `magicrouter.maxTokens` | `0` | 最大输出 Token，`0` 表示不限制 |
-| `magicrouter.temperature` | `null` | 可选温度参数 |
-| `magicrouter.reasoningEffort` | `high` | 支持思考模型的默认思考强度 |
-| `magicrouter.enrichPublicModelMetadata` | `true` | 对 AIXRouter / AgileRouter Base URL，从公开模型页补齐成本、多模态和上下文信息 |
-| `magicrouter.debug` | `false` | 输出调试日志，不记录完整提示词 |
+| `aixrouter.baseUrl` | `https://api.aixrouter.com` | Magic Router 网关 Base URL。Claude 请求使用 `/claude/v1/messages`，其他对话请求使用 `/openai/v1/chat/completions` |
+| `aixrouter.models` | `[]` | 固定模型列表。留空时从 `/openai/v1/models` 动态读取 |
+| `aixrouter.maxTokens` | `0` | 最大输出 Token，`0` 表示不限制 |
+| `aixrouter.temperature` | `null` | 可选温度参数 |
+| `aixrouter.reasoningEffort` | `high` | 支持思考模型的默认思考强度 |
+| `aixrouter.enrichPublicModelMetadata` | `true` | 对 AIXRouter / AgileRouter Base URL，从公开模型页补齐成本、多模态和上下文信息 |
+| `aixrouter.debug` | `false` | 输出调试日志，不记录完整提示词 |
 
 固定模型示例：
 
 ```json
 {
-  "magicrouter.models": [
+  "aixrouter.models": [
     {
       "id": "gpt-4o",
       "name": "GPT-4o via Magic Router",

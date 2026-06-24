@@ -699,7 +699,7 @@ function toModelConfig(model: RawModel): AIXRouterModelConfig | undefined {
     id: model.id,
     name: model.name || model.id,
     family: isPlaceholderOwner(model.owned_by) ? model.vendor || inferFamily(model.id) : model.owned_by,
-    version: 'magicrouter',
+    version: 'aixrouter',
     maxInputTokens: numberFrom(model.context_length, model.max_context_length) ?? 128000,
     maxOutputTokens: numberFrom(model.max_output_tokens) ?? 8192,
     toolCalling: booleanFrom(capabilities.tool_calling, capabilities.tools, capabilities.function_calling) ?? true,
@@ -743,7 +743,7 @@ function toApiPricing(model: RawModel): AIXRouterModelConfig['pricing'] {
 
 function inferFamily(id: string): string {
   const [family] = id.split(/[/:.-]/);
-  return family || 'magicrouter';
+  return family || 'aixrouter';
 }
 
 function getChatApiKind(modelText: string): MagicRouterApiKind {
