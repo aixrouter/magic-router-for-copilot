@@ -92,10 +92,10 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
     const apiKey = await this.auth.getApiKey();
     const baseUrl = getBaseUrl();
     if (!baseUrl) {
-      throw new Error('Magic Router Base URL is not configured. Run "Magic Router: Set Base URL" first.');
+      throw new Error('AIXRouter Base URL is not configured. Run "AIXRouter: Set Base URL" first.');
     }
     if (!apiKey) {
-      throw new Error('Magic Router API Key is not configured. Run "Magic Router: Set API Key" first.');
+      throw new Error('AIXRouter API Key is not configured. Run "AIXRouter: Set API Key" first.');
     }
 
     const model = this.resolveModel(modelInfo.id);
@@ -149,11 +149,11 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
 
     try {
       const models = await new AIXRouterClient(baseUrl, apiKey, getPublicModelMetadataEnabled()).listModels(abort.signal);
-      this.logger.info(`Loaded ${models.length} Magic Router model(s).`);
+      this.logger.info(`Loaded ${models.length} AIXRouter model(s).`);
       this.lastModelLoadError = undefined;
       return models;
     } catch (error) {
-      this.logger.error('Failed to load models from Magic Router', error);
+      this.logger.error('Failed to load models from AIXRouter', error);
       this.notifyModelLoadError(error);
       return [];
     } finally {
@@ -169,7 +169,7 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
 
     this.lastModelLoadError = message;
     void vscode.window.showWarningMessage(
-      `Could not load Magic Router models. ${message}`,
+      `Could not load AIXRouter models. ${message}`,
       'Set API Key',
       'Set Base URL',
       'Open Settings',
@@ -224,12 +224,12 @@ function toChatInfo(model: AIXRouterModelConfig, hasKey: boolean, hasUrl: boolea
   return {
     id: model.id,
     name: model.name || model.id,
-    family: model.family || 'aixrouter',
+    family: 'aixrouter',
     version: model.version || 'aixrouter',
     maxInputTokens: model.maxInputTokens ?? 128000,
     maxOutputTokens: model.maxOutputTokens ?? 8192,
-    detail: configured ? 'Magic Router BYOK' : getSetupDetail(hasUrl, hasKey),
-    tooltip: configured ? `${model.id} via Magic Router` : getSetupDetail(hasUrl, hasKey),
+    detail: configured ? 'AIXRouter BYOK' : getSetupDetail(hasUrl, hasKey),
+    tooltip: configured ? `${model.id} via AIXRouter` : getSetupDetail(hasUrl, hasKey),
     isBYOK: true,
     isUserSelectable: configured,
     statusIcon: configured ? undefined : new vscode.ThemeIcon('warning'),
@@ -254,7 +254,7 @@ function countImageParts(request: ChatCompletionRequest): number {
 function toSetupChatInfo(hasUrl: boolean, hasKey: boolean): ModelPickerInfo {
   return {
     id: 'setup-required',
-    name: 'Configure Magic Router',
+    name: 'Configure AIXRouter',
     family: 'aixrouter',
     version: 'setup',
     maxInputTokens: 1,
@@ -273,12 +273,12 @@ function toSetupChatInfo(hasUrl: boolean, hasKey: boolean): ModelPickerInfo {
 
 function getSetupDetail(hasUrl: boolean, hasKey: boolean): string {
   if (!hasUrl && !hasKey) {
-    return 'Run Magic Router: Set Base URL, then Magic Router: Set API Key';
+    return 'Run AIXRouter: Set Base URL, then AIXRouter: Set API Key';
   }
   if (!hasUrl) {
-    return 'Run Magic Router: Set Base URL';
+    return 'Run AIXRouter: Set Base URL';
   }
-  return 'Run Magic Router: Set API Key';
+  return 'Run AIXRouter: Set API Key';
 }
 
 function getErrorMessage(error: unknown): string {

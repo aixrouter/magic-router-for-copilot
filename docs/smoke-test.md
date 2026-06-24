@@ -8,13 +8,13 @@ Use this checklist before publishing a VSIX or Marketplace release.
 - Confirm GitHub Copilot Chat is installed, enabled, and signed in.
 - Confirm the first-run prompt appears once when the API Key is missing.
 - Confirm the default Base URL is `https://api.aixrouter.com`.
-- Optionally run `Magic Router: Set Base URL` and confirm a custom gateway can be saved.
-- Run `Magic Router: Set API Key`.
-- Run `Magic Router: Refresh Models`.
+- Optionally run `AIXRouter: Set Base URL` and confirm a custom gateway can be saved.
+- Run `AIXRouter: Set API Key`.
+- Run `AIXRouter: Refresh Models`.
 
 ## Model Picker
 
-- Open Copilot Chat and confirm Magic Router models appear in the model picker.
+- Open Copilot Chat and confirm AIXRouter models appear in the model picker.
 - Confirm models are loaded from `{baseUrl}/openai/v1/models`.
 - Confirm vision-capable models show image support.
 - Confirm thinking-capable models show reasoning effort options.
@@ -32,8 +32,8 @@ Use this checklist before publishing a VSIX or Marketplace release.
 
 ## Errors
 
-- Use an invalid API key and confirm the 401 message suggests `Magic Router: Set API Key`.
-- Use an invalid Base URL and confirm the error suggests checking `Magic Router: Set Base URL`.
+- Use an invalid API key and confirm the 401 message suggests `AIXRouter: Set API Key`.
+- Use an invalid Base URL and confirm the error suggests checking `AIXRouter: Set Base URL`.
 - Use an account with insufficient quota, when available, and confirm the 402 message is readable.
 - Enable `aixrouter.debug` and confirm diagnostics do not include prompt text or authorization headers.
 

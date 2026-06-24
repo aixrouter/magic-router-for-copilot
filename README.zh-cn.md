@@ -1,4 +1,4 @@
-# 魔法路由（Magic Router for Copilot）
+# 魔法路由（AIXRouter for Copilot）
 
 [English](README.md) | [简体中文](README.zh-cn.md)
 
@@ -26,11 +26,11 @@
 ## 快速开始
 
 1. 在 VS Code 中安装并启用扩展。
-2. 运行命令 `Magic Router: Set API Key`，粘贴你的 API Key。
+2. 运行命令 `AIXRouter: Set API Key`，粘贴你的 API Key。
 3. 打开 Copilot Chat，点击模型选择器。
-4. 选择 Magic Router 提供的模型，开始使用 Agent 模式。
+4. 选择 AIXRouter 提供的模型，开始使用 Agent 模式。
 
-扩展默认使用 `https://api.aixrouter.com` 作为网关 Base URL。如需使用其他兼容网关，运行 `Magic Router: Set Base URL` 修改。
+扩展默认使用 `https://api.aixrouter.com` 作为网关 Base URL。如需使用其他兼容网关，运行 `AIXRouter: Set Base URL` 修改。
 
 常用 Base URL：
 
@@ -41,13 +41,13 @@
 
 ## API 路由
 
-Magic Router 会把 `aixrouter.baseUrl` 视为网关根地址。默认 `https://api.aixrouter.com` 下，模型列表从 `https://api.aixrouter.com/openai/v1/models` 加载。Claude 请求使用 Anthropic Messages 格式发送到 `https://api.aixrouter.com/claude/v1/messages`，其他对话请求发送到 `https://api.aixrouter.com/openai/v1/chat/completions`。
+AIXRouter 会把 `aixrouter.baseUrl` 视为网关根地址。默认 `https://api.aixrouter.com` 下，模型列表从 `https://api.aixrouter.com/openai/v1/models` 加载。Claude 请求使用 Anthropic Messages 格式发送到 `https://api.aixrouter.com/claude/v1/messages`，其他对话请求发送到 `https://api.aixrouter.com/openai/v1/chat/completions`。
 
 ## 设置项
 
 | 设置项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `aixrouter.baseUrl` | `https://api.aixrouter.com` | Magic Router 网关 Base URL。Claude 请求使用 `/claude/v1/messages`，其他对话请求使用 `/openai/v1/chat/completions` |
+| `aixrouter.baseUrl` | `https://api.aixrouter.com` | AIXRouter 网关 Base URL。Claude 请求使用 `/claude/v1/messages`，其他对话请求使用 `/openai/v1/chat/completions` |
 | `aixrouter.models` | `[]` | 固定模型列表。留空时从 `/openai/v1/models` 动态读取 |
 | `aixrouter.maxTokens` | `0` | 最大输出 Token，`0` 表示不限制 |
 | `aixrouter.temperature` | `null` | 可选温度参数 |
@@ -62,7 +62,7 @@ Magic Router 会把 `aixrouter.baseUrl` 视为网关根地址。默认 `https://
   "aixrouter.models": [
     {
       "id": "gpt-4o",
-      "name": "GPT-4o via Magic Router",
+      "name": "GPT-4o via AIXRouter",
       "family": "openai",
       "maxInputTokens": 128000,
       "maxOutputTokens": 8192,
@@ -72,7 +72,7 @@ Magic Router 会把 `aixrouter.baseUrl` 视为网关根地址。默认 `https://
     },
     {
       "id": "deepseek-r1",
-      "name": "DeepSeek R1 via Magic Router",
+      "name": "DeepSeek R1 via AIXRouter",
       "family": "deepseek",
       "maxInputTokens": 128000,
       "maxOutputTokens": 8192,

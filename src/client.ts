@@ -61,7 +61,7 @@ interface ClaudeTool {
   readonly input_schema?: Record<string, unknown>;
 }
 
-type MagicRouterApiKind = 'openai' | 'claude';
+type AIXRouterApiKind = 'openai' | 'claude';
 
 export class AIXRouterClient {
   constructor(
@@ -79,7 +79,7 @@ export class AIXRouterClient {
     });
 
     if (!response.ok) {
-      throw await createHttpError('Failed to load Magic Router models', response);
+      throw await createHttpError('Failed to load AIXRouter models', response);
     }
 
     const json = await response.json() as { data?: RawModel[] };
@@ -108,11 +108,11 @@ export class AIXRouterClient {
     const response = await this.fetchChatCompletion(request, 'openai', signal);
 
     if (!response.ok) {
-      throw await createHttpError('Magic Router chat completion failed', response);
+      throw await createHttpError('AIXRouter chat completion failed', response);
     }
 
     if (!response.body) {
-      throw new Error('Magic Router response body is empty.');
+      throw new Error('AIXRouter response body is empty.');
     }
 
     const contentType = response.headers.get('content-type') ?? '';
@@ -157,7 +157,7 @@ export class AIXRouterClient {
 
   private async fetchChatCompletion(
     request: ChatCompletionRequest,
-    apiKind: MagicRouterApiKind,
+    apiKind: AIXRouterApiKind,
     signal?: AbortSignal,
   ): Promise<Response> {
     return fetch(buildEndpointUrl(this.baseUrl, apiKind, 'chat/completions'), {
@@ -185,11 +185,11 @@ export class AIXRouterClient {
     this.debug?.(`Claude response stream=true status=${response.status} contentType=${response.headers.get('content-type') ?? 'unknown'}`);
 
     if (!response.ok) {
-      throw await createHttpError('Magic Router Claude message failed', response);
+      throw await createHttpError('AIXRouter Claude message failed', response);
     }
 
     if (!response.body) {
-      throw new Error('Magic Router Claude response body is empty.');
+      throw new Error('AIXRouter Claude response body is empty.');
     }
 
     const reader = response.body.getReader();
@@ -290,7 +290,7 @@ export class AIXRouterClient {
     }
 
     if (!response.ok) {
-      throw await createHttpError('Magic Router Claude message failed', response);
+      throw await createHttpError('AIXRouter Claude message failed', response);
     }
 
     await processClaudeFullResponse(response, handlers);
@@ -375,12 +375,12 @@ function appendPreview(current: string, chunk: string): string {
 function emptyResponseError(source: string, preview: string): Error {
   const normalized = preview.replace(/\s+/g, ' ').trim().slice(0, 800);
   const suffix = normalized ? ` Response preview: ${normalized}` : '';
-  return new Error(`Magic Router ${source} did not contain any assistant text or tool call.${suffix}`);
+  return new Error(`AIXRouter ${source} did not contain any assistant text or tool call.${suffix}`);
 }
 
 function fetchFailedError(endpoint: string, error: unknown): Error {
   const cause = error instanceof Error ? error.message : String(error);
-  return new Error(`Magic Router request to ${endpoint} failed before receiving an HTTP response. ${cause}`);
+  return new Error(`AIXRouter request to ${endpoint} failed before receiving an HTTP response. ${cause}`);
 }
 
 function summarizeClaudeRequest(endpoint: string, request: ClaudeMessageRequest): string {
@@ -746,7 +746,7 @@ function inferFamily(id: string): string {
   return family || 'aixrouter';
 }
 
-function getChatApiKind(modelText: string): MagicRouterApiKind {
+function getChatApiKind(modelText: string): AIXRouterApiKind {
   const normalized = modelText.toLowerCase();
   if (normalized.startsWith('claude-') || normalized.includes('/claude-') || normalized.includes('anthropic')) {
     return 'claude';
@@ -754,7 +754,7 @@ function getChatApiKind(modelText: string): MagicRouterApiKind {
   return 'openai';
 }
 
-function buildEndpointUrl(baseUrl: string, kind: MagicRouterApiKind, resourcePath: string): string {
+function buildEndpointUrl(baseUrl: string, kind: AIXRouterApiKind, resourcePath: string): string {
   return `${getGatewayRoot(baseUrl)}/${getApiPath(kind)}/${resourcePath}`;
 }
 
@@ -762,7 +762,7 @@ function getGatewayRoot(baseUrl: string): string {
   return baseUrl.replace(/\/+((openai|claude)\/v1)$/i, '');
 }
 
-function getApiPath(kind: MagicRouterApiKind): string {
+function getApiPath(kind: AIXRouterApiKind): string {
   switch (kind) {
     case 'claude':
       return 'claude/v1';
@@ -884,7 +884,7 @@ function friendlyStatusMessage(status: number): string | undefined {
     return 'The request was rejected. Check the selected model and request options.';
   }
   if (status === 401) {
-    return 'The API key is missing or invalid. Run "Magic Router: Set API Key".';
+    return 'The API key is missing or invalid. Run "AIXRouter: Set API Key".';
   }
   if (status === 402) {
     return 'The account has insufficient balance or quota.';
@@ -893,7 +893,7 @@ function friendlyStatusMessage(status: number): string | undefined {
     return 'The API key does not have permission to access this endpoint or model.';
   }
   if (status === 404) {
-    return 'The Base URL or model endpoint was not found. Check "Magic Router: Set Base URL".';
+    return 'The Base URL or model endpoint was not found. Check "AIXRouter: Set Base URL".';
   }
   if (status === 408) {
     return 'The request timed out. Try again or check your network/proxy.';

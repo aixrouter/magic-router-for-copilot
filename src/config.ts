@@ -14,8 +14,8 @@ export function hasBaseUrl(): boolean {
 
 export async function setBaseUrl(): Promise<boolean> {
   const value = await vscode.window.showInputBox({
-    title: 'Magic Router Base URL',
-    prompt: 'Enter your Magic Router gateway base URL, for example https://api.aixrouter.com.',
+    title: 'AIXRouter Base URL',
+    prompt: 'Enter your AIXRouter gateway base URL, for example https://api.aixrouter.com.',
     value: getBaseUrl(),
     ignoreFocusOut: true,
     validateInput: (input) => {
