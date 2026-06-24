@@ -40,6 +40,7 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
 
   private cachedModels: AIXRouterModelConfig[] = [];
   private modelLoadPromise?: Promise<AIXRouterModelConfig[]>;
+  private modelLoadGeneration = 0;
   private lastModelLoadError?: string;
 
   constructor(
@@ -58,6 +59,7 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
   refreshModelPicker(): void {
     this.cachedModels = [];
     this.modelLoadPromise = undefined;
+    this.modelLoadGeneration += 1;
     this.onDidChangeEmitter.fire();
   }
 
@@ -78,8 +80,13 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
     }
 
     if (this.cachedModels.length === 0) {
+      const generation = this.modelLoadGeneration;
       this.modelLoadPromise ??= this.loadModels(token);
-      this.cachedModels = await this.modelLoadPromise;
+      const loaded = await this.modelLoadPromise;
+      // Discard stale results if refreshModelPicker() was called while loading.
+      if (generation === this.modelLoadGeneration) {
+        this.cachedModels = loaded;
+      }
       this.modelLoadPromise = undefined;
     }
 

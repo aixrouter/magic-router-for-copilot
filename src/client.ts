@@ -5,7 +5,7 @@ import type {
   StreamHandlers,
 } from './types';
 import { loadPublicModelEnrichment, mergePublicModelEnrichment } from './pricing';
-import { fetchWithRetry, fetchWithTimeout } from './http';
+import { fetchJsonWithRetry, fetchWithTimeout } from './http';
 import { getContextWindows, numberFrom } from './modelUtils';
 
 interface RawModel {
@@ -80,16 +80,15 @@ export class AIXRouterClient {
   ) {}
 
   async listModels(signal?: AbortSignal): Promise<AIXRouterModelConfig[]> {
-    const response = await fetchWithRetry(buildEndpointUrl(this.baseUrl, 'openai', 'models'), {
-      method: 'GET',
-      headers: this.headers(),
-    }, signal);
+    const json = await fetchJsonWithRetry<{ data?: RawModel[] }>(
+      buildEndpointUrl(this.baseUrl, 'openai', 'models'),
+      {
+        method: 'GET',
+        headers: this.headers(),
+      },
+      signal,
+    );
 
-    if (!response.ok) {
-      throw await createHttpError('Failed to load AIXRouter models', response);
-    }
-
-    const json = await response.json() as { data?: RawModel[] };
     const models = (json.data ?? [])
       .map(toModelConfig)
       .filter((model): model is AIXRouterModelConfig => Boolean(model?.id));
@@ -167,9 +166,12 @@ export class AIXRouterClient {
     apiKind: AIXRouterApiKind,
     signal?: AbortSignal,
   ): Promise<Response> {
+    // POST chat/completions is not retried: a timeout after the upstream
+    // receives the request could double-charge on retry. Only GET endpoints
+    // (model list, metadata) use fetchWithRetry.
     const endpoint = buildEndpointUrl(this.baseUrl, apiKind, 'chat/completions');
     try {
-      return await fetchWithRetry(endpoint, {
+      return await fetchWithTimeout(endpoint, {
         method: 'POST',
         headers: {
           ...this.headers(),

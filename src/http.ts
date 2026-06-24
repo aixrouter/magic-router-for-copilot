@@ -45,3 +45,44 @@ export async function fetchWithTimeout(
     signal?.removeEventListener('abort', abort);
   }
 }
+
+/**
+ * Fetches a URL and reads the response body as JSON within the timeout window.
+ * Unlike {@link fetchWithRetry}, this covers the body read so a server that
+ * sends headers but hangs the body cannot block indefinitely.
+ */
+export async function fetchJsonWithRetry<T>(
+  url: string,
+  init: RequestInit,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetchWithRetry(url, init, signal);
+  if (!response.ok) {
+    throw await httpError(url, response);
+  }
+  return response.json() as Promise<T>;
+}
+
+/**
+ * Fetches a URL and reads the response body as text within the timeout window.
+ * Covers the body read so a server that sends headers but hangs the body
+ * cannot block indefinitely.
+ */
+export async function fetchTextWithRetry(
+  url: string,
+  init: RequestInit,
+  signal?: AbortSignal,
+): Promise<string> {
+  const response = await fetchWithRetry(url, init, signal);
+  if (!response.ok) {
+    throw await httpError(url, response);
+  }
+  return response.text();
+}
+
+async function httpError(url: string, response: Response): Promise<Error> {
+  const body = await response.text().catch(() => '');
+  const preview = body.replace(/\s+/g, ' ').trim().slice(0, 500);
+  const suffix = preview ? ` Response: ${preview}` : '';
+  return new Error(`Request to ${url} failed: ${response.status} ${response.statusText}.${suffix}`);
+}

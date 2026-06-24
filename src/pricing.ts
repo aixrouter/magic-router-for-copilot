@@ -1,5 +1,5 @@
 import type { AIXRouterModelConfig, AIXRouterPricing } from './types';
-import { fetchWithRetry } from './http';
+import { fetchTextWithRetry } from './http';
 import { getContextWindows, numberFrom } from './modelUtils';
 
 interface PublicModelMetadata {
@@ -38,12 +38,7 @@ export async function loadPublicModelEnrichment(
     return new Map();
   }
 
-  const response = await fetchWithRetry(publicModelsUrl, {}, signal);
-  if (!response.ok) {
-    return new Map();
-  }
-
-  const html = await response.text();
+  const html = await fetchTextWithRetry(publicModelsUrl, {}, signal);
   const jsonText = extractClientModelsJson(html);
   if (!jsonText) {
     return new Map();
