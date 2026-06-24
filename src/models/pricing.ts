@@ -1,6 +1,6 @@
-import type { AIXRouterModelConfig, AIXRouterPricing } from './types';
-import { fetchTextWithRetry } from './http';
-import { getContextWindows, numberFrom } from './modelUtils';
+import type { AIXRouterModelConfig, AIXRouterPricing } from '../types.js';
+import { fetchTextWithRetry } from '../client/http.js';
+import { getContextWindows, numberFrom } from './modelUtils.js';
 
 interface PublicModelMetadata {
   readonly name?: string;

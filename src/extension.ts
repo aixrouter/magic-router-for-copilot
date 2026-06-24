@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { AuthStore } from './auth';
 import { hasBaseUrl, openSettings, setBaseUrl } from './config';
 import { Logger } from './logger';
-import { AIXRouterChatProvider } from './provider';
+import { AIXRouterChatProvider } from './provider/provider';
 
 const INITIAL_SETUP_PROMPT_KEY = 'aixrouter.initialSetupPromptShown';
 
