@@ -1,18 +1,18 @@
-# AIXRouter
+# Magic Router for Copilot
 
 [English](README.md) | [简体中文](README.zh-cn.md)
 
-Use AIXRouter models directly from the GitHub Copilot Chat model picker.
+Use Magic Router models directly from the GitHub Copilot Chat model picker.
 
-AIXRouter does not replace Copilot Chat or add a separate chat UI. It registers AIXRouter as a Copilot language model provider, so you can keep using Copilot Chat, Agent mode, workspace context, instructions, and tools while sending model requests through your own OpenAI-compatible router endpoint.
+Magic Router for Copilot does not replace Copilot Chat or add a separate chat UI. It registers Magic Router as a Copilot language model provider, so you can keep using Copilot Chat, Agent mode, workspace context, instructions, and tools while sending model requests through your own OpenAI-compatible router endpoint.
 
 ## Features
 
-- Adds AIXRouter models to the Copilot Chat model picker.
+- Adds Magic Router models to the Copilot Chat model picker.
 - Uses your own API key, stored in VS Code SecretStorage.
-- Prompts for Base URL and API key on first setup.
+- Uses `https://api.aixrouter.com` as the default gateway Base URL and lets you change it when needed.
 - Loads models from `{baseUrl}/openai/v1/models`.
-- Routes chat requests by model family: Claude to `/claude/v1`, Gemini to `/gemini/v1beta`, Vertex AI to `/vertexai/v1`, and other models to `/openai/v1`.
+- Routes Claude requests to the Anthropic Messages endpoint at `{baseUrl}/claude/v1/messages`; other chat requests use `{baseUrl}/openai/v1/chat/completions`.
 - Supports OpenAI-compatible streaming, tool calls, image input, and reasoning output.
 - Enriches model metadata with cost, vendor, multimodal, thinking, and context options for supported AIXRouter and AgileRouter base URLs when enabled.
 
@@ -20,15 +20,15 @@ AIXRouter does not replace Copilot Chat or add a separate chat UI. It registers 
 
 - VS Code 1.116 or newer.
 - GitHub Copilot Chat installed and signed in.
-- An OpenAI-compatible AIXRouter endpoint and API key.
+- An OpenAI-compatible Magic Router endpoint and API key.
 
 ## Quick Start
 
 1. Install the extension.
-2. Run `AIXRouter: Set Base URL`.
-3. Enter your AIXRouter gateway Base URL, for example `https://api.aixrouter.com`.
-4. Run `AIXRouter: Set API Key`.
-5. Open Copilot Chat and choose an AIXRouter model from the model picker.
+2. Run `Magic Router: Set API Key`.
+3. Open Copilot Chat and choose a Magic Router model from the model picker.
+
+The extension uses `https://api.aixrouter.com` as the default gateway Base URL. To use another compatible gateway, run `Magic Router: Set Base URL`.
 
 Common Base URLs:
 
@@ -39,62 +39,27 @@ Common Base URLs:
 
 ## API Routing
 
-AIXRouter treats `aixrouter.baseUrl` as the gateway root. With the default `https://api.aixrouter.com`, requests are routed as follows:
-
-| Model family | Endpoint |
-| --- | --- |
-| Anthropic Claude | `https://api.aixrouter.com/claude/v1/chat/completions` |
-| Google Gemini | `https://api.aixrouter.com/gemini/v1beta/chat/completions` |
-| Google Vertex AI | `https://api.aixrouter.com/vertexai/v1/chat/completions` |
-| Other OpenAI-compatible models | `https://api.aixrouter.com/openai/v1/chat/completions` |
-
-The model list is loaded from `https://api.aixrouter.com/openai/v1/models`.
+Magic Router treats `magicrouter.baseUrl` as the gateway root. With the default `https://api.aixrouter.com`, model discovery uses `https://api.aixrouter.com/openai/v1/models`. Claude requests use `https://api.aixrouter.com/claude/v1/messages` with the Anthropic Messages payload shape. All other chat requests use `https://api.aixrouter.com/openai/v1/chat/completions`.
 
 ## Commands
 
-- `AIXRouter: Set Base URL`
-- `AIXRouter: Set API Key`
-- `AIXRouter: Clear API Key`
-- `AIXRouter: Refresh Models`
-- `AIXRouter: Open Settings`
+- `Magic Router: Set Base URL`
+- `Magic Router: Set API Key`
+- `Magic Router: Clear API Key`
+- `Magic Router: Refresh Models`
+- `Magic Router: Open Settings`
 
 ## Settings
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `aixrouter.baseUrl` | `https://api.aixrouter.com` | AIXRouter gateway Base URL. The extension appends the model-specific API path automatically. |
-| `aixrouter.models` | `[]` | Optional pinned model list. Leave empty to load from `/openai/v1/models`. |
-| `aixrouter.maxTokens` | `0` | Maximum completion tokens. `0` means provider default. |
-| `aixrouter.temperature` | `null` | Optional temperature. |
-| `aixrouter.reasoningEffort` | `high` | Default reasoning effort for models that expose thinking mode. |
-| `aixrouter.enrichPublicModelMetadata` | `true` | Enrich cost, multimodal, and context metadata from the public model catalog for AIXRouter and AgileRouter base URLs. |
-| `aixrouter.debug` | `false` | Write request diagnostics to the output channel. Prompt text is not logged. |
-
-## Recommended Model Metadata
-
-`{baseUrl}/openai/v1/models` is the authoritative source for model availability. For the best Copilot model picker experience, each model can include capability, context, and pricing metadata:
-
-```json
-{
-  "id": "claude-opus-4.6",
-  "owned_by": "Anthropic",
-  "type": "Multimodal",
-  "contextWindow": 1000000,
-  "maxOutputTokens": 32000,
-  "capabilities": {
-    "toolCalling": true,
-    "vision": true,
-    "thinking": true
-  },
-  "pricing": {
-    "currencyCode": "USD",
-    "inputPer1M": 5,
-    "outputPer1M": 25,
-    "cacheHitPer1M": 0.5,
-    "cacheCreationPer1M": 0
-  }
-}
-```
+| `magicrouter.baseUrl` | `https://api.aixrouter.com` | Magic Router gateway Base URL. Claude requests use `/claude/v1/messages`; other chat requests use `/openai/v1/chat/completions`. |
+| `magicrouter.models` | `[]` | Optional pinned model list. Leave empty to load from `/openai/v1/models`. |
+| `magicrouter.maxTokens` | `0` | Maximum completion tokens. `0` means provider default. |
+| `magicrouter.temperature` | `null` | Optional temperature. |
+| `magicrouter.reasoningEffort` | `high` | Default reasoning effort for models that expose thinking mode. |
+| `magicrouter.enrichPublicModelMetadata` | `true` | Enrich cost, multimodal, and context metadata from the public model catalog for AIXRouter and AgileRouter base URLs. |
+| `magicrouter.debug` | `false` | Write request diagnostics to the output channel. Prompt text is not logged. |
 
 ## Development
 

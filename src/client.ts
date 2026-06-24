@@ -12,27 +12,15 @@ interface RawModel {
   readonly owned_by?: string;
   readonly context_length?: number;
   readonly max_context_length?: number;
-  readonly contextWindow?: number;
-  readonly maxInputTokens?: number;
   readonly max_output_tokens?: number;
-  readonly maxOutputTokens?: number;
   readonly inputPer1M?: number;
   readonly outputPer1M?: number;
   readonly cacheHitPer1M?: number;
   readonly cacheCreationPer1M?: number;
   readonly currencyCode?: string;
-  readonly pricing?: {
-    readonly currencyCode?: string;
-    readonly inputPer1M?: number;
-    readonly outputPer1M?: number;
-    readonly cacheHitPer1M?: number;
-    readonly cacheCreationPer1M?: number;
-  };
   readonly capabilities?: Record<string, unknown>;
   readonly type?: string;
   readonly vendor?: string;
-  readonly modelVendorName?: string;
-  readonly family?: string;
 }
 
 interface ToolCallAccumulator {
@@ -41,13 +29,45 @@ interface ToolCallAccumulator {
   arguments: string;
 }
 
-type AIXRouterApiKind = 'openai' | 'claude' | 'gemini' | 'vertexai';
+interface StreamState {
+  emitted: boolean;
+}
+
+interface ClaudeMessageRequest {
+  readonly model: string;
+  readonly messages: ClaudeMessage[];
+  readonly system?: string;
+  readonly stream: boolean;
+  readonly tools?: ClaudeTool[];
+  readonly max_tokens?: number;
+  readonly temperature?: number;
+}
+
+interface ClaudeMessage {
+  readonly role: 'user' | 'assistant';
+  readonly content: ClaudeContentBlock[];
+}
+
+type ClaudeContentBlock =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'image'; readonly source: { readonly type: 'base64'; readonly media_type: string; readonly data: string } }
+  | { readonly type: 'tool_use'; readonly id: string; readonly name: string; readonly input: unknown }
+  | { readonly type: 'tool_result'; readonly tool_use_id: string; readonly content: string };
+
+interface ClaudeTool {
+  readonly name: string;
+  readonly description?: string;
+  readonly input_schema?: Record<string, unknown>;
+}
+
+type MagicRouterApiKind = 'openai' | 'claude';
 
 export class AIXRouterClient {
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly enrichPublicModelMetadata = true,
+    private readonly debug?: (message: string) => void,
   ) {}
 
   async listModels(signal?: AbortSignal): Promise<AIXRouterModelConfig[]> {
@@ -58,7 +78,7 @@ export class AIXRouterClient {
     });
 
     if (!response.ok) {
-      throw await createHttpError('Failed to load AIXRouter models', response);
+      throw await createHttpError('Failed to load Magic Router models', response);
     }
 
     const json = await response.json() as { data?: RawModel[] };
@@ -78,8 +98,62 @@ export class AIXRouterClient {
     handlers: StreamHandlers,
     signal?: AbortSignal,
   ): Promise<void> {
-    const apiKind = getModelApiKind(routeHint ?? request.model);
-    let response = await fetch(buildEndpointUrl(this.baseUrl, apiKind, 'chat/completions'), {
+    const apiKind = getChatApiKind(routeHint ?? request.model);
+    if (apiKind === 'claude') {
+      await this.streamClaudeMessage(request, handlers, signal);
+      return;
+    }
+
+    const response = await this.fetchChatCompletion(request, 'openai', signal);
+
+    if (!response.ok) {
+      throw await createHttpError('Magic Router chat completion failed', response);
+    }
+
+    if (!response.body) {
+      throw new Error('Magic Router response body is empty.');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const toolCalls = new Map<number, ToolCallAccumulator>();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) {
+          continue;
+        }
+
+        const data = trimmed.slice('data:'.length).trim();
+        if (data === '[DONE]') {
+          flushToolCalls(toolCalls, handlers);
+          return;
+        }
+
+        processSseData(data, toolCalls, handlers);
+      }
+    }
+
+    flushToolCalls(toolCalls, handlers);
+  }
+
+  private async fetchChatCompletion(
+    request: ChatCompletionRequest,
+    apiKind: MagicRouterApiKind,
+    signal?: AbortSignal,
+  ): Promise<Response> {
+    return fetch(buildEndpointUrl(this.baseUrl, apiKind, 'chat/completions'), {
       method: 'POST',
       headers: {
         ...this.headers(),
@@ -88,31 +162,27 @@ export class AIXRouterClient {
       body: JSON.stringify(request),
       signal,
     });
+  }
 
-    if (response.status === 404 && apiKind !== 'openai') {
-      response = await fetch(buildEndpointUrl(this.baseUrl, 'openai', 'chat/completions'), {
-        method: 'POST',
-        headers: {
-          ...this.headers(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-        signal,
-      });
-    }
+  private async streamClaudeMessage(
+    request: ChatCompletionRequest,
+    handlers: StreamHandlers,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const endpoint = buildEndpointUrl(this.baseUrl, 'claude', 'messages');
+    const claudeRequest = toClaudeMessageRequest(request, true);
+    this.debug?.(`Claude request ${summarizeClaudeRequest(endpoint, claudeRequest)}`);
+
+    const response = await this.fetchClaudeMessageWithRetry(endpoint, claudeRequest, signal);
+
+    this.debug?.(`Claude response stream=true status=${response.status} contentType=${response.headers.get('content-type') ?? 'unknown'}`);
 
     if (!response.ok) {
-      throw await createHttpError('AIXRouter chat completion failed', response);
-    }
-
-    const contentType = response.headers.get('content-type') ?? '';
-    if (!contentType.includes('text/event-stream')) {
-      await processFullResponse(response, handlers);
-      return;
+      throw await createHttpError('Magic Router Claude message failed', response);
     }
 
     if (!response.body) {
-      throw new Error('AIXRouter response body is empty.');
+      throw new Error('Magic Router Claude response body is empty.');
     }
 
     const reader = response.body.getReader();
@@ -120,7 +190,7 @@ export class AIXRouterClient {
     const toolCalls = new Map<number, ToolCallAccumulator>();
     let buffer = '';
     let preview = '';
-    let emittedText = false;
+    const state: StreamState = { emitted: false };
 
     while (true) {
       const { done, value } = await reader.read();
@@ -129,43 +199,92 @@ export class AIXRouterClient {
       }
 
       const chunk = decoder.decode(value, { stream: true });
-      preview = appendPreview(preview, chunk);
       buffer += chunk;
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? '';
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed) {
-          continue;
-        }
-
-        if (!trimmed.startsWith('data:')) {
-          emittedText = processResponseData(trimmed, toolCalls, handlers) || emittedText;
+        if (!trimmed || trimmed.startsWith(':') || !trimmed.startsWith('data:')) {
           continue;
         }
 
         const data = trimmed.slice('data:'.length).trim();
         if (data === '[DONE]') {
-          const emittedTools = flushToolCalls(toolCalls, handlers);
-          if (!emittedText && !emittedTools) {
-            throw emptyResponseError(preview);
+          flushToolCalls(toolCalls, handlers);
+          if (!state.emitted) {
+            throw emptyResponseError('Claude stream', preview);
           }
           return;
         }
 
-        emittedText = processResponseData(data, toolCalls, handlers) || emittedText;
+        preview = appendPreview(preview, data);
+        processClaudeData(data, toolCalls, handlers, state);
       }
     }
 
-    if (buffer.trim()) {
-      emittedText = processResponseData(buffer.trim(), toolCalls, handlers) || emittedText;
+    flushToolCalls(toolCalls, handlers);
+    if (!state.emitted) {
+      throw emptyResponseError('Claude stream', preview || buffer);
+    }
+  }
+
+  private async fetchClaudeMessageWithRetry(
+    endpoint: string,
+    request: ClaudeMessageRequest,
+    signal?: AbortSignal,
+  ): Promise<Response> {
+    try {
+      return await this.fetchClaudeMessage(endpoint, request, signal);
+    } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
+      this.debug?.(`Claude request failed before HTTP response; retrying once. ${error instanceof Error ? error.message : String(error)}`);
+      try {
+        return await this.fetchClaudeMessage(endpoint, request, signal);
+      } catch (retryError) {
+        throw fetchFailedError(endpoint, retryError);
+      }
+    }
+  }
+
+  private async fetchClaudeMessage(
+    endpoint: string,
+    request: ClaudeMessageRequest,
+    signal?: AbortSignal,
+  ): Promise<Response> {
+    return fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        ...this.headers(),
+        Accept: request.stream ? 'text/event-stream' : 'application/json',
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+      signal,
+    });
+  }
+
+  private async completeClaudeMessage(
+    request: ChatCompletionRequest,
+    handlers: StreamHandlers,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const endpoint = buildEndpointUrl(this.baseUrl, 'claude', 'messages');
+    let response: Response;
+    try {
+      response = await this.fetchClaudeMessage(endpoint, toClaudeMessageRequest(request, false), signal);
+    } catch (error) {
+      throw fetchFailedError(endpoint, error);
     }
 
-    const emittedTools = flushToolCalls(toolCalls, handlers);
-    if (!emittedText && !emittedTools) {
-      throw emptyResponseError(preview || buffer);
+    if (!response.ok) {
+      throw await createHttpError('Magic Router Claude message failed', response);
     }
+
+    await processClaudeFullResponse(response, handlers);
   }
 
   private headers(): Record<string, string> {
@@ -175,100 +294,246 @@ export class AIXRouterClient {
   }
 }
 
-async function processFullResponse(
+async function processClaudeFullResponse(
   response: Response,
   handlers: StreamHandlers,
 ): Promise<void> {
   const body = await response.text();
   const toolCalls = new Map<number, ToolCallAccumulator>();
-  const emittedText = processResponseData(body.trim(), toolCalls, handlers);
-  const emittedTools = flushToolCalls(toolCalls, handlers);
-  if (!emittedText && !emittedTools) {
-    throw emptyResponseError(body);
+  const state: StreamState = { emitted: false };
+
+  processClaudeData(body.trim(), toolCalls, handlers, state);
+  flushToolCalls(toolCalls, handlers);
+
+  if (!state.emitted) {
+    throw emptyResponseError('Claude response', body);
   }
 }
 
 function appendPreview(current: string, chunk: string): string {
-  return (current + chunk).slice(0, 2000);
+  return `${current}${chunk}`.slice(0, 2000);
 }
 
-function emptyResponseError(preview: string): Error {
+function emptyResponseError(source: string, preview: string): Error {
   const normalized = preview.replace(/\s+/g, ' ').trim().slice(0, 800);
   const suffix = normalized ? ` Response preview: ${normalized}` : '';
-  return new Error(`AIXRouter response did not contain any assistant text or tool call.${suffix}`);
+  return new Error(`Magic Router ${source} did not contain any assistant text or tool call.${suffix}`);
 }
 
-function processResponseData(
+function fetchFailedError(endpoint: string, error: unknown): Error {
+  const cause = error instanceof Error ? error.message : String(error);
+  return new Error(`Magic Router request to ${endpoint} failed before receiving an HTTP response. ${cause}`);
+}
+
+function summarizeClaudeRequest(endpoint: string, request: ClaudeMessageRequest): string {
+  const roles = request.messages.map((message) => message.role).join(',');
+  const blockTypes = request.messages
+    .map((message) => `${message.role}:${message.content.map((block) => block.type).join('+')}`)
+    .join('|');
+  return JSON.stringify({
+    endpoint,
+    stream: request.stream,
+    model: request.model,
+    messageCount: request.messages.length,
+    roles,
+    blockTypes,
+    hasSystem: Boolean(request.system),
+    tools: request.tools?.length ?? 0,
+    maxTokens: request.max_tokens,
+    hasTemperature: request.temperature !== undefined,
+  });
+}
+
+function toClaudeMessageRequest(request: ChatCompletionRequest, stream: boolean): ClaudeMessageRequest {
+  const messages: ClaudeMessage[] = [];
+  const systemParts: string[] = [];
+
+  for (const message of request.messages) {
+    if (message.role === 'system') {
+      systemParts.push(textFromContent(message.content));
+      continue;
+    }
+
+    if (message.role === 'tool') {
+      appendClaudeMessage(messages, {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: message.tool_call_id, content: message.content }],
+      });
+      continue;
+    }
+
+    const content = toClaudeContent(message.content);
+    for (const toolCall of message.tool_calls ?? []) {
+      content.push({
+        type: 'tool_use',
+        id: toolCall.id,
+        name: toolCall.function.name,
+        input: parseToolArguments(toolCall.function.arguments),
+      });
+    }
+
+    if (content.length > 0) {
+      appendClaudeMessage(messages, { role: message.role, content });
+    }
+  }
+
+  const maxTokens = request.max_tokens ?? 4096;
+  return {
+    model: request.model,
+    messages,
+    ...(systemParts.length ? { system: systemParts.join('\n\n') } : {}),
+    stream,
+    tools: toClaudeTools(request.tools),
+    max_tokens: maxTokens,
+    temperature: request.temperature,
+  };
+}
+
+function appendClaudeMessage(messages: ClaudeMessage[], message: ClaudeMessage): void {
+  const previous = messages.at(-1);
+  if (previous?.role === message.role) {
+    previous.content.push(...message.content);
+    return;
+  }
+
+  messages.push(message);
+}
+
+function toClaudeContent(content: ChatCompletionRequest['messages'][number]['content']): ClaudeContentBlock[] {
+  if (typeof content === 'string') {
+    return content ? [{ type: 'text', text: content }] : [];
+  }
+
+  return content.flatMap((part): ClaudeContentBlock[] => {
+    if (part.type === 'text') {
+      return part.text ? [{ type: 'text', text: part.text }] : [];
+    }
+
+    const dataUrlMatch = part.image_url.url.match(/^data:([^;]+);base64,(.+)$/);
+    if (!dataUrlMatch) {
+      return [];
+    }
+
+    return [{
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: dataUrlMatch[1],
+        data: dataUrlMatch[2],
+      },
+    }];
+  });
+}
+
+function toClaudeTools(tools: ChatCompletionRequest['tools']): ClaudeTool[] | undefined {
+  if (!tools?.length) {
+    return undefined;
+  }
+
+  return tools.map((tool) => ({
+    name: tool.function.name,
+    description: tool.function.description,
+    input_schema: tool.function.parameters,
+  }));
+}
+
+function textFromContent(content: ChatCompletionRequest['messages'][number]['content']): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  return content
+    .map((part) => part.type === 'text' ? part.text : '')
+    .join('');
+}
+
+function parseToolArguments(value: string): unknown {
+  try {
+    return JSON.parse(value || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function processClaudeData(
   data: string,
   toolCalls: Map<number, ToolCallAccumulator>,
   handlers: StreamHandlers,
-): boolean {
+  state: StreamState,
+): void {
   let json: any;
   try {
     json = JSON.parse(data);
   } catch {
-    return false;
+    return;
   }
 
-  return processResponseJson(json, toolCalls, handlers);
-}
-
-function processResponseJson(
-  json: any,
-  toolCalls: Map<number, ToolCallAccumulator>,
-  handlers: StreamHandlers,
-): boolean {
   if (json.usage) {
-    handlers.onUsage(json.usage);
+    handlers.onUsage({
+      prompt_tokens: json.usage.input_tokens,
+      completion_tokens: json.usage.output_tokens,
+    });
   }
 
-  let emittedText = false;
-  const choice = json.choices?.[0];
-  const delta = choice?.delta ?? choice?.message ?? json.delta ?? json.message ?? json;
-
-  const text = extractText(delta?.content ?? delta?.text ?? json.text ?? json.response);
-  if (text) {
-    handlers.onText(text);
-    emittedText = true;
+  const fullText = extractClaudeFullText(json.content);
+  if (fullText) {
+    handlers.onText(fullText);
+    state.emitted = true;
   }
 
-  const thinking = extractText(delta?.reasoning_content ?? delta?.reasoning ?? delta?.thinking);
-  if (thinking) {
-    handlers.onThinking(thinking);
-    emittedText = true;
+  const delta = json.delta;
+  const deltaUsage = delta?.usage;
+  if (json.type === 'message_delta' && deltaUsage) {
+    handlers.onUsage({
+      prompt_tokens: deltaUsage.input_tokens,
+      completion_tokens: deltaUsage.output_tokens,
+    });
   }
 
-  for (const rawToolCall of delta?.tool_calls ?? []) {
-    const index = rawToolCall.index ?? toolCalls.size;
-    const current = toolCalls.get(index) ?? { id: '', name: '', arguments: '' };
-    current.id += rawToolCall.id ?? '';
-    current.name += rawToolCall.function?.name ?? '';
-    current.arguments += rawToolCall.function?.arguments ?? '';
-    toolCalls.set(index, current);
+  if (json.type === 'content_block_delta') {
+    if (delta?.type === 'text_delta' && typeof delta.text === 'string') {
+      handlers.onText(delta.text);
+      state.emitted = true;
+      return;
+    }
+    if (delta?.type === 'thinking_delta' && typeof delta.thinking === 'string') {
+      handlers.onThinking(delta.thinking);
+      state.emitted = true;
+      return;
+    }
+    if (delta?.type === 'input_json_delta' && typeof delta.partial_json === 'string') {
+      const index = json.index ?? toolCalls.size;
+      const current = toolCalls.get(index) ?? { id: '', name: '', arguments: '' };
+      current.arguments += delta.partial_json;
+      toolCalls.set(index, current);
+      state.emitted = true;
+      return;
+    }
   }
 
-  return emittedText;
+  if (json.type === 'content_block_start' && json.content_block?.type === 'tool_use') {
+    const index = json.index ?? toolCalls.size;
+    toolCalls.set(index, {
+      id: json.content_block.id || `call_${index}`,
+      name: json.content_block.name || '',
+      arguments: JSON.stringify(json.content_block.input ?? {}),
+    });
+    state.emitted = true;
+  }
 }
 
-function extractText(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value.length > 0 ? value : undefined;
-  }
-
-  if (!Array.isArray(value)) {
+function extractClaudeFullText(content: unknown): string | undefined {
+  if (!Array.isArray(content)) {
     return undefined;
   }
 
-  const text = value
+  const text = content
     .map((part) => {
-      if (typeof part === 'string') {
-        return part;
-      }
       if (typeof part?.text === 'string') {
         return part.text;
       }
-      if (typeof part?.content === 'string') {
-        return part.content;
+      if (typeof part?.thinking === 'string') {
+        return part.thinking;
       }
       return '';
     })
@@ -277,11 +542,50 @@ function extractText(value: unknown): string | undefined {
   return text.length > 0 ? text : undefined;
 }
 
+function processSseData(
+  data: string,
+  toolCalls: Map<number, ToolCallAccumulator>,
+  handlers: StreamHandlers,
+): void {
+  let json: any;
+  try {
+    json = JSON.parse(data);
+  } catch {
+    return;
+  }
+
+  if (json.usage) {
+    handlers.onUsage(json.usage);
+  }
+
+  const delta = json.choices?.[0]?.delta;
+  if (!delta) {
+    return;
+  }
+
+  if (typeof delta.content === 'string' && delta.content.length > 0) {
+    handlers.onText(delta.content);
+  }
+
+  const thinking = delta.reasoning_content ?? delta.reasoning;
+  if (typeof thinking === 'string' && thinking.length > 0) {
+    handlers.onThinking(thinking);
+  }
+
+  for (const rawToolCall of delta.tool_calls ?? []) {
+    const index = rawToolCall.index ?? toolCalls.size;
+    const current = toolCalls.get(index) ?? { id: '', name: '', arguments: '' };
+    current.id += rawToolCall.id ?? '';
+    current.name += rawToolCall.function?.name ?? '';
+    current.arguments += rawToolCall.function?.arguments ?? '';
+    toolCalls.set(index, current);
+  }
+}
+
 function flushToolCalls(
   toolCalls: Map<number, ToolCallAccumulator>,
   handlers: StreamHandlers,
-): boolean {
-  let emitted = false;
+): void {
   for (const [index, toolCall] of [...toolCalls.entries()].sort(([a], [b]) => a - b)) {
     if (!toolCall.name) {
       continue;
@@ -294,10 +598,8 @@ function flushToolCalls(
         arguments: toolCall.arguments || '{}',
       },
     });
-    emitted = true;
   }
   toolCalls.clear();
-  return emitted;
 }
 
 function toModelConfig(model: RawModel): AIXRouterModelConfig | undefined {
@@ -307,26 +609,15 @@ function toModelConfig(model: RawModel): AIXRouterModelConfig | undefined {
 
   const capabilities = model.capabilities ?? {};
   const modelText = normalizeModelText(model);
-  const maxInputTokens = numberFrom(
-    model.contextWindow,
-    model.maxInputTokens,
-    model.context_length,
-    model.max_context_length,
-  );
-  const maxOutputTokens = numberFrom(model.maxOutputTokens, model.max_output_tokens);
+
   return {
     id: model.id,
     name: model.name || model.id,
-    family: inferFamily(model.id),
-    version: 'aixrouter',
-    maxInputTokens: maxInputTokens ?? 128000,
-    maxOutputTokens: maxOutputTokens ?? 8192,
-    toolCalling: booleanFrom(
-      capabilities.toolCalling,
-      capabilities.tool_calling,
-      capabilities.tools,
-      capabilities.function_calling,
-    ) ?? true,
+    family: isPlaceholderOwner(model.owned_by) ? model.vendor || inferFamily(model.id) : model.owned_by,
+    version: 'magicrouter',
+    maxInputTokens: numberFrom(model.context_length, model.max_context_length) ?? 128000,
+    maxOutputTokens: numberFrom(model.max_output_tokens) ?? 8192,
+    toolCalling: booleanFrom(capabilities.tool_calling, capabilities.tools, capabilities.function_calling) ?? true,
     vision: booleanFrom(
       capabilities.vision,
       capabilities.image_input,
@@ -335,17 +626,17 @@ function toModelConfig(model: RawModel): AIXRouterModelConfig | undefined {
       capabilities.multi_modal,
     ) ?? looksVisionCapable(modelText),
     thinking: booleanFrom(capabilities.reasoning, capabilities.thinking) ?? looksThinkingCapable(modelText),
-    contextWindows: getContextWindows(modelText, maxInputTokens),
+    contextWindows: getContextWindows(modelText, numberFrom(model.context_length, model.max_context_length)),
     sourceType: model.type,
     pricing: toApiPricing(model),
   };
 }
 
 function toApiPricing(model: RawModel): AIXRouterModelConfig['pricing'] {
-  const inputPer1M = numberFrom(model.pricing?.inputPer1M, model.inputPer1M);
-  const outputPer1M = numberFrom(model.pricing?.outputPer1M, model.outputPer1M);
-  const cacheHitPer1M = numberFrom(model.pricing?.cacheHitPer1M, model.cacheHitPer1M);
-  const cacheCreationPer1M = numberFrom(model.pricing?.cacheCreationPer1M, model.cacheCreationPer1M);
+  const inputPer1M = numberFrom(model.inputPer1M);
+  const outputPer1M = numberFrom(model.outputPer1M);
+  const cacheHitPer1M = numberFrom(model.cacheHitPer1M);
+  const cacheCreationPer1M = numberFrom(model.cacheCreationPer1M);
 
   if (
     inputPer1M === undefined &&
@@ -357,7 +648,7 @@ function toApiPricing(model: RawModel): AIXRouterModelConfig['pricing'] {
   }
 
   return {
-    currencyCode: model.pricing?.currencyCode || model.currencyCode || 'USD',
+    currencyCode: model.currencyCode || 'USD',
     inputPer1M,
     outputPer1M,
     cacheHitPer1M,
@@ -367,43 +658,36 @@ function toApiPricing(model: RawModel): AIXRouterModelConfig['pricing'] {
 
 function inferFamily(id: string): string {
   const [family] = id.split(/[/:.-]/);
-  return family || 'aixrouter';
+  return family || 'magicrouter';
 }
 
-
-function getModelApiKind(modelId: string): AIXRouterApiKind {
-  const normalized = modelId.toLowerCase();
-  if (normalized.includes('vertex') || normalized.includes('vertexai')) {
-    return 'vertexai';
-  }
+function getChatApiKind(modelText: string): MagicRouterApiKind {
+  const normalized = modelText.toLowerCase();
   if (normalized.startsWith('claude-') || normalized.includes('/claude-') || normalized.includes('anthropic')) {
     return 'claude';
-  }
-  if (normalized.startsWith('gemini-') || normalized.includes('/gemini-') || normalized.includes('google/gemini')) {
-    return 'gemini';
   }
   return 'openai';
 }
 
-function buildEndpointUrl(baseUrl: string, kind: AIXRouterApiKind, resourcePath: string): string {
+function buildEndpointUrl(baseUrl: string, kind: MagicRouterApiKind, resourcePath: string): string {
   return `${getGatewayRoot(baseUrl)}/${getApiPath(kind)}/${resourcePath}`;
 }
 
 function getGatewayRoot(baseUrl: string): string {
-  return baseUrl.replace(/\/+(openai\/v1|claude\/v1|gemini\/v1beta|vertexai\/v1)$/i, '');
+  return baseUrl.replace(/\/+((openai|claude)\/v1)$/i, '');
 }
 
-function getApiPath(kind: AIXRouterApiKind): string {
+function getApiPath(kind: MagicRouterApiKind): string {
   switch (kind) {
     case 'claude':
       return 'claude/v1';
-    case 'gemini':
-      return 'gemini/v1beta';
-    case 'vertexai':
-      return 'vertexai/v1';
     case 'openai':
       return 'openai/v1';
   }
+}
+
+function isPlaceholderOwner(value: string | undefined): boolean {
+  return !value || value === 'kredo' || value === 'aixrouter';
 }
 
 function normalizeModelText(model: RawModel): string {
@@ -412,8 +696,6 @@ function normalizeModelText(model: RawModel): string {
     model.name,
     model.owned_by,
     model.vendor,
-    model.modelVendorName,
-    model.family,
     model.type,
   ]
     .filter(Boolean)
@@ -493,7 +775,6 @@ function numberFrom(...values: unknown[]): number | undefined {
   return undefined;
 }
 
-
 function booleanFrom(...values: unknown[]): boolean | undefined {
   for (const value of values) {
     if (typeof value === 'boolean') {
@@ -518,7 +799,7 @@ function friendlyStatusMessage(status: number): string | undefined {
     return 'The request was rejected. Check the selected model and request options.';
   }
   if (status === 401) {
-    return 'The API key is missing or invalid. Run "AIXRouter: Set API Key".';
+    return 'The API key is missing or invalid. Run "Magic Router: Set API Key".';
   }
   if (status === 402) {
     return 'The account has insufficient balance or quota.';
@@ -527,7 +808,7 @@ function friendlyStatusMessage(status: number): string | undefined {
     return 'The API key does not have permission to access this endpoint or model.';
   }
   if (status === 404) {
-    return 'The Base URL or model endpoint was not found. Check "AIXRouter: Set Base URL".';
+    return 'The Base URL or model endpoint was not found. Check "Magic Router: Set Base URL".';
   }
   if (status === 408) {
     return 'The request timed out. Try again or check your network/proxy.';

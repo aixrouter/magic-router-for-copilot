@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { AIXRouterModelConfig } from './types';
 
-const SECTION = 'aixrouter';
+const SECTION = 'magicrouter';
 const DEFAULT_BASE_URL = 'https://api.aixrouter.com';
 
 export function getBaseUrl(): string {
@@ -14,8 +14,8 @@ export function hasBaseUrl(): boolean {
 
 export async function setBaseUrl(): Promise<boolean> {
   const value = await vscode.window.showInputBox({
-    title: 'AIXRouter Base URL',
-    prompt: 'Enter your AIXRouter gateway base URL, for example https://api.aixrouter.com.',
+    title: 'Magic Router Base URL',
+    prompt: 'Enter your Magic Router gateway base URL, for example https://api.aixrouter.com.',
     value: getBaseUrl(),
     ignoreFocusOut: true,
     validateInput: (input) => {
@@ -78,7 +78,7 @@ export function onConfigChanged(listener: () => void): vscode.Disposable {
 }
 
 export function openSettings(): Thenable<unknown> {
-  return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${vscode.extensions.getExtension('aixrouter.aixrouter-for-copilot')?.id ?? SECTION}`);
+  return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${vscode.extensions.getExtension('aixrouter.magic-router-for-copilot')?.id ?? SECTION}`);
 }
 
 function getConfig(): vscode.WorkspaceConfiguration {

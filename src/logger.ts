@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { getDebugEnabled } from './config';
 
 export class Logger {
-  private readonly channel = vscode.window.createOutputChannel('AIXRouter');
+  private readonly channel = vscode.window.createOutputChannel('Magic Router for Copilot');
 
   dispose(): void {
     this.channel.dispose();

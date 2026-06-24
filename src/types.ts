@@ -29,6 +29,7 @@ export interface ChatCompletionRequest {
   readonly tools?: ChatTool[];
   readonly tool_choice?: 'auto';
   readonly max_tokens?: number;
+  readonly context_window?: number;
   readonly temperature?: number;
   readonly reasoning_effort?: 'low' | 'medium' | 'high' | 'max';
 }

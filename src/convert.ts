@@ -21,11 +21,12 @@ export function convertMessages(
         continue;
       }
 
-      if (part instanceof vscode.LanguageModelDataPart && part.mimeType.startsWith('image/')) {
+      const imagePart = getImageDataPart(part);
+      if (imagePart) {
         contentParts.push({
           type: 'image_url',
           image_url: {
-            url: `data:${part.mimeType};base64,${Buffer.from(part.data).toString('base64')}`,
+            url: `data:${imagePart.mimeType};base64,${Buffer.from(imagePart.data).toString('base64')}`,
           },
         });
         continue;
@@ -106,10 +107,99 @@ function partToText(part: unknown): string {
   if (part instanceof vscode.LanguageModelTextPart) {
     return part.value;
   }
-  if (part instanceof vscode.LanguageModelDataPart) {
-    return `[${part.mimeType}; ${part.data.byteLength} bytes]`;
+  const imagePart = getImageDataPart(part);
+  if (imagePart) {
+    return `[${imagePart.mimeType}; ${imagePart.data.byteLength} bytes]`;
   }
   return '';
+}
+
+export function summarizeMessageParts(
+  messages: readonly vscode.LanguageModelChatRequestMessage[],
+): string {
+  return messages
+    .map((message, messageIndex) => `${messageIndex}:${message.content.map(summarizePart).join('+')}`)
+    .join('|');
+}
+
+function summarizePart(part: unknown): string {
+  if (part instanceof vscode.LanguageModelTextPart) {
+    return 'text';
+  }
+  if (part instanceof vscode.LanguageModelToolCallPart) {
+    return 'tool_call';
+  }
+  if (part instanceof vscode.LanguageModelToolResultPart) {
+    return 'tool_result';
+  }
+
+  const dataPart = getDataPart(part);
+  if (dataPart) {
+    return `${dataPart.mimeType || 'data'}:${dataPart.data.byteLength}`;
+  }
+
+  if (!part || typeof part !== 'object') {
+    return typeof part;
+  }
+
+  const ctor = (part as { constructor?: { name?: string } }).constructor?.name ?? 'object';
+  const keys = Object.keys(part as Record<string, unknown>).slice(0, 6).join(',');
+  return `${ctor}{${keys}}`;
+}
+
+function getImageDataPart(part: unknown): { mimeType: string; data: Uint8Array } | undefined {
+  const dataPart = getDataPart(part);
+  if (dataPart?.mimeType.startsWith('image/')) {
+    return dataPart;
+  }
+
+  return undefined;
+}
+
+function getDataPart(part: unknown): { mimeType: string; data: Uint8Array } | undefined {
+  if (part instanceof vscode.LanguageModelDataPart) {
+    return { mimeType: part.mimeType, data: part.data };
+  }
+
+  if (!part || typeof part !== 'object') {
+    return undefined;
+  }
+
+  const candidate = part as {
+    mimeType?: unknown;
+    mime_type?: unknown;
+    mediaType?: unknown;
+    data?: unknown;
+    value?: unknown;
+  };
+  const mimeType = stringValue(candidate.mimeType) ?? stringValue(candidate.mime_type) ?? stringValue(candidate.mediaType) ?? '';
+  if (!mimeType) {
+    return undefined;
+  }
+
+  const data = bytesValue(candidate.data) ?? bytesValue(candidate.value);
+  if (!data) {
+    return undefined;
+  }
+
+  return { mimeType, data };
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function bytesValue(value: unknown): Uint8Array | undefined {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+  if (value instanceof ArrayBuffer) {
+    return new Uint8Array(value);
+  }
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+  return undefined;
 }
 
 function mapRole(role: vscode.LanguageModelChatMessageRole): 'user' | 'assistant' {
