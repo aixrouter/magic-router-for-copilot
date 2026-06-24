@@ -17,7 +17,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerCommands(context, auth, provider);
 
   await activateCopilotChat(logger);
-  provider.refreshModelPicker();
   void promptForInitialConfiguration(context, auth, provider);
 }
 
