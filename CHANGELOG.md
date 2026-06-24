@@ -3,6 +3,8 @@
 ## 0.1.5
 
 - Fix: Map Copilot reasoning effort to Claude extended thinking budgets.
+- Fix: Omit Claude temperature when extended thinking is enabled to satisfy Claude API constraints.
+- Fix: Preserve tool calls from non-stream Claude fallback responses.
 - Fix: Keep Claude non-stream thinking content separate from assistant text.
 - Fix: Avoid duplicated OpenAI-compatible tool call IDs and names in repeated stream chunks.
 - Fix: Use conservative fallback vision capabilities when a selected model is not cached.

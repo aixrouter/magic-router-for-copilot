@@ -439,6 +439,7 @@ function toClaudeMessageRequest(request: ChatCompletionRequest, stream: boolean)
   }
 
   const maxTokens = request.max_tokens ?? 4096;
+  const thinking = toClaudeThinking(request.reasoning_effort, maxTokens);
   return {
     model: request.model,
     messages,
@@ -446,8 +447,8 @@ function toClaudeMessageRequest(request: ChatCompletionRequest, stream: boolean)
     stream,
     tools: toClaudeTools(request.tools),
     max_tokens: maxTokens,
-    temperature: clampClaudeTemperature(request.temperature),
-    thinking: toClaudeThinking(request.reasoning_effort, maxTokens),
+    temperature: thinking ? undefined : clampClaudeTemperature(request.temperature),
+    thinking,
   };
 }
 
@@ -575,6 +576,7 @@ function processClaudeData(
     handlers.onThinking(fullContent.thinking);
     state.emitted = true;
   }
+  appendClaudeFullToolUses(json.content, toolCalls, state);
 
   const delta = json.delta;
   const deltaUsage = delta?.usage;
@@ -617,6 +619,31 @@ function processClaudeData(
       name: json.content_block.name || '',
       arguments: '',
       argumentsFallback: JSON.stringify(json.content_block.input ?? {}),
+    });
+    state.emitted = true;
+  }
+}
+
+function appendClaudeFullToolUses(
+  content: unknown,
+  toolCalls: Map<number, ToolCallAccumulator>,
+  state: StreamState,
+): void {
+  if (!Array.isArray(content)) {
+    return;
+  }
+
+  for (const block of content) {
+    if (block?.type !== 'tool_use') {
+      continue;
+    }
+
+    const index = toolCalls.size;
+    toolCalls.set(index, {
+      id: block.id || 'call_' + index,
+      name: block.name || '',
+      arguments: '',
+      argumentsFallback: JSON.stringify(block.input ?? {}),
     });
     state.emitted = true;
   }
