@@ -2,7 +2,7 @@
   "name": "aixrouter-for-copilot",
   "displayName": "AIXRouter for Copilot",
   "description": "Use AIXRouter models directly from the GitHub Copilot Chat model picker. BYOK, vision-capable models, thinking mode, and agent tools.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "packageManager": "pnpm@9.15.9",
   "publisher": "aixrouter",
   "icon": "resources/icon.png",
@@ -80,7 +80,7 @@
         "aixrouter.models": {
           "type": "array",
           "default": [],
-          "markdownDescription": "Optional pinned model list. Leave empty to load from `/models`. Each item accepts `id`, `name`, `family`, `version`, `maxInputTokens`, `maxOutputTokens`, `toolCalling`, `vision`, and `thinking`.",
+          "markdownDescription": "Optional pinned model list. Leave empty to load from `{baseUrl}/openai/v1/models`. Each item accepts `id`, `name`, `family`, `version`, `maxInputTokens`, `maxOutputTokens`, `toolCalling`, `vision`, and `thinking`.",
           "items": {
             "type": "object",
             "required": [
@@ -168,6 +168,7 @@
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('out', { recursive: true, force: true })\"",
+    "sync-models": "node scripts/sync-model-metadata.mjs",
     "compile": "pnpm run clean && tsc -p ./",
     "watch": "pnpm run clean && tsc -watch -p ./",
     "package": "pnpm run compile && pnpm exec vsce package --no-dependencies"

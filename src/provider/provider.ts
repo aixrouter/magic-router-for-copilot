@@ -199,7 +199,9 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
     options: ModelOptions,
   ): ChatCompletionRequest {
     const tools = model.toolCalling === false ? undefined : convertTools(options.tools);
-    const maxTokens = getMaxTokens() ?? model.maxOutputTokens;
+    // Only send max_tokens when the user explicitly sets aixrouter.maxTokens > 0,
+    // so that 0 means "provider default" as documented.
+    const maxTokens = getMaxTokens();
     const contextWindow = getConfiguredContextWindow(model, options);
     const temperature = getTemperature();
     const reasoningEffort = getConfiguredReasoningEffort(model, options);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8
+
+- Fix: Honor `aixrouter.maxTokens = 0` by omitting `max_tokens` and using the provider default.
+- Fix: Apply timeout coverage to model-list and metadata body reads.
+- Improve: Enrich missing model metadata from a bundled LiteLLM fallback catalog before applying heuristics.
+- Improve: Keep packaged VSIX contents clean by excluding local `.env` and helper scripts.
+
 ## 0.1.5
 
 - Fix: Map Copilot reasoning effort to Claude extended thinking budgets.

@@ -4,6 +4,8 @@ import type {
   StreamHandlers,
 } from '../types.js';
 import { loadPublicModelEnrichment, mergePublicModelEnrichment } from '../models/pricing.js';
+import { enrichModelsWithLiteLLM } from '../models/litellmFallback.js';
+import { applyHeuristicFallbacks } from '../models/heuristicFallback.js';
 import { fetchJsonWithRetry, fetchWithTimeout } from './http.js';
 import { createHttpError, fetchFailedError, emptyResponseError } from './errors.js';
 import { getContextWindows, numberFrom } from '../models/modelUtils.js';
@@ -70,7 +72,11 @@ export class AIXRouterClient {
     const enrichment = this.enrichPublicModelMetadata
       ? await loadPublicModelEnrichment(this.baseUrl, signal).catch(() => new Map())
       : new Map();
-    return mergePublicModelEnrichment(models, enrichment);
+    const merged = mergePublicModelEnrichment(models, enrichment);
+    // Third-tier fallback: fill remaining gaps from the bundled LiteLLM catalog.
+    const enriched = enrichModelsWithLiteLLM(merged);
+    // Fourth-tier fallback: name-based heuristics for anything still missing.
+    return applyHeuristicFallbacks(enriched);
   }
 
   async streamChatCompletion(
@@ -295,25 +301,32 @@ function toModelConfig(model: RawModel): AIXRouterModelConfig | undefined {
   }
 
   const capabilities = model.capabilities ?? {};
-  const modelText = normalizeModelText(model);
+
+  // Only extract data the API actually returned — no local defaults.
+  // Defaults are applied later by applyHeuristicFallbacks() after
+  // LiteLLM enrichment has had a chance to fill in real capabilities.
+  const apiContextLength = numberFrom(model.context_length, model.max_context_length);
+  const apiMaxOutputTokens = numberFrom(model.max_output_tokens);
 
   return {
     id: model.id,
     name: model.name || model.id,
     family: isPlaceholderOwner(model.owned_by) ? model.vendor || inferFamily(model.id) : model.owned_by,
     version: 'aixrouter',
-    maxInputTokens: numberFrom(model.context_length, model.max_context_length) ?? 128000,
-    maxOutputTokens: numberFrom(model.max_output_tokens) ?? 8192,
-    toolCalling: booleanFrom(capabilities.tool_calling, capabilities.tools, capabilities.function_calling) ?? true,
-    vision: looksVisionCapable(modelText) || (booleanFrom(
+    maxInputTokens: apiContextLength,
+    maxOutputTokens: apiMaxOutputTokens,
+    toolCalling: booleanFrom(capabilities.tool_calling, capabilities.tools, capabilities.function_calling),
+    vision: booleanFrom(
       capabilities.vision,
       capabilities.image_input,
       capabilities.imageInput,
       capabilities.multimodal,
       capabilities.multi_modal,
-    ) ?? false),
-    thinking: booleanFrom(capabilities.reasoning, capabilities.thinking) ?? looksThinkingCapable(modelText),
-    contextWindows: getContextWindows(modelText, numberFrom(model.context_length, model.max_context_length)),
+    ),
+    thinking: booleanFrom(capabilities.reasoning, capabilities.thinking),
+    contextWindows: apiContextLength !== undefined
+      ? getContextWindows(normalizeModelText(model), apiContextLength)
+      : undefined,
     sourceType: model.type,
     pricing: toApiPricing(model),
   };
@@ -388,47 +401,6 @@ function normalizeModelText(model: RawModel): string {
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
-}
-
-function looksVisionCapable(modelText: string): boolean {
-  if (
-    modelText.includes('multimodal') ||
-    modelText.includes('multi-modal') ||
-    modelText.includes('vision') ||
-    /\bvl\b/.test(modelText)
-  ) {
-    return true;
-  }
-
-  return [
-    /^claude-(haiku|sonnet|opus)-/,
-    /^gemini-/,
-    /^gpt-4o\b/,
-    /^gpt-4\.1\b/,
-    /^gpt-5(\b|-)/,
-    /^gpt-5\./,
-    /^glm-5\.1\b/,
-    /^kimi-k2\.5\b/,
-  ].some((pattern) => pattern.test(modelText));
-}
-
-function looksThinkingCapable(modelText: string): boolean {
-  if (modelText.includes('reason') || modelText.includes('thinking')) {
-    return true;
-  }
-
-  return [
-    /^claude-(haiku|sonnet|opus)-/,
-    /^gpt-4o\b/,
-    /^gpt-4\.1\b/,
-    /^gpt-5(\b|-)/,
-    /^gpt-5\./,
-    /^gemini-/,
-    /\bo[134]\b/,
-    /\bo[134]-/,
-    /\br1\b/,
-    /\bqwen3\b/,
-  ].some((pattern) => pattern.test(modelText));
 }
 
 function booleanFrom(...values: unknown[]): boolean | undefined {

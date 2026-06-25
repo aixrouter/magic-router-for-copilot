@@ -48,36 +48,94 @@ export async function fetchWithTimeout(
 
 /**
  * Fetches a URL and reads the response body as JSON within the timeout window.
- * Unlike {@link fetchWithRetry}, this covers the body read so a server that
- * sends headers but hangs the body cannot block indefinitely.
+ * Creates its own AbortController whose signal is passed directly to fetch()
+ * so the timeout covers both the HTTP request and the body read.
  */
 export async function fetchJsonWithRetry<T>(
   url: string,
   init: RequestInit,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetchWithRetry(url, init, signal);
-  if (!response.ok) {
-    throw await httpError(url, response);
+  for (let attempt = 0; attempt <= FETCH_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, FETCH_TIMEOUT_MS);
+    const onAbort = () => controller.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
+
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      if (!response.ok) {
+        throw await httpError(url, response);
+      }
+      const body = (await response.json()) as T;
+      if (timedOut) {
+        throw new Error(`Request to ${url} timed out after ${FETCH_TIMEOUT_MS}ms.`);
+      }
+      return body;
+    } catch (error) {
+      if (timedOut || signal?.aborted || attempt >= FETCH_RETRIES) {
+        if (timedOut) {
+          throw new Error(`Request to ${url} timed out after ${FETCH_TIMEOUT_MS}ms.`);
+        }
+        throw error;
+      }
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', onAbort);
+    }
   }
-  return response.json() as Promise<T>;
+
+  throw new Error('Request failed.');
 }
 
 /**
  * Fetches a URL and reads the response body as text within the timeout window.
- * Covers the body read so a server that sends headers but hangs the body
- * cannot block indefinitely.
+ * Creates its own AbortController whose signal is passed directly to fetch()
+ * so the timeout covers both the HTTP request and the body read.
  */
 export async function fetchTextWithRetry(
   url: string,
   init: RequestInit,
   signal?: AbortSignal,
 ): Promise<string> {
-  const response = await fetchWithRetry(url, init, signal);
-  if (!response.ok) {
-    throw await httpError(url, response);
+  for (let attempt = 0; attempt <= FETCH_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, FETCH_TIMEOUT_MS);
+    const onAbort = () => controller.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
+
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      if (!response.ok) {
+        throw await httpError(url, response);
+      }
+      const body = await response.text();
+      if (timedOut) {
+        throw new Error(`Request to ${url} timed out after ${FETCH_TIMEOUT_MS}ms.`);
+      }
+      return body;
+    } catch (error) {
+      if (timedOut || signal?.aborted || attempt >= FETCH_RETRIES) {
+        if (timedOut) {
+          throw new Error(`Request to ${url} timed out after ${FETCH_TIMEOUT_MS}ms.`);
+        }
+        throw error;
+      }
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', onAbort);
+    }
   }
-  return response.text();
+
+  throw new Error('Request failed.');
 }
 
 async function httpError(url: string, response: Response): Promise<Error> {
