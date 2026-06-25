@@ -230,27 +230,28 @@ function findEntry(modelId: string, family?: string): LiteLLMModelEntry | undefi
 /**
  * Enriches a model config with LiteLLM fallback data for any missing fields.
  *
- * Only fills gaps — never overrides values already present from the AIXRouter
- * API or public catalog.
+ * Fills gaps and expands token/context limits when the bundled LiteLLM catalog
+ * knows a larger model capability. It never lowers platform-provided values.
  */
 export function enrichWithLiteLLM(model: AIXRouterModelConfig): AIXRouterModelConfig {
   const entry = findEntry(model.id, model.family);
   if (!entry) return model;
 
-  const maxInputTokens =
-    model.maxInputTokens ?? entry.maxInputTokens;
-  const maxOutputTokens =
-    model.maxOutputTokens ?? entry.maxOutputTokens;
-  const vision = model.vision ?? entry.vision;
-  const toolCalling = model.toolCalling ?? entry.toolCalling;
-  const thinking = model.thinking ?? entry.reasoning;
+  const maxInputTokens = maxNumber(model.maxInputTokens, entry.maxInputTokens);
+  const maxOutputTokens = maxNumber(model.maxOutputTokens, entry.maxOutputTokens);
+  const vision = model.vision === true || entry.vision === true ? true : model.vision ?? entry.vision;
+  const toolCalling = model.toolCalling === true || entry.toolCalling === true ? true : model.toolCalling ?? entry.toolCalling;
+  const thinking = model.thinking === true || entry.reasoning === true ? true : model.thinking ?? entry.reasoning;
 
-  // Recompute context windows if they were missing and we now have a max input.
+  // Recompute context windows if LiteLLM expanded the known max input.
   let contextWindows = model.contextWindows;
-  if ((!contextWindows || contextWindows.length === 0) && maxInputTokens !== undefined) {
+  if (maxInputTokens !== undefined) {
     const modelText = [model.id, model.name, model.family].filter(Boolean).join(' ').toLowerCase();
     const windows = getContextWindows(modelText, maxInputTokens);
-    contextWindows = windows.length > 0 ? windows : undefined;
+    const mergedWindows = [...new Set([...(contextWindows ?? []), ...windows])]
+      .filter((value) => value <= maxInputTokens)
+      .sort((a, b) => a - b);
+    contextWindows = mergedWindows.length > 0 ? mergedWindows : undefined;
   }
 
   // Pricing is intentionally NOT filled from LiteLLM — different providers
@@ -273,4 +274,10 @@ export function enrichWithLiteLLM(model: AIXRouterModelConfig): AIXRouterModelCo
  */
 export function enrichModelsWithLiteLLM(models: AIXRouterModelConfig[]): AIXRouterModelConfig[] {
   return models.map(enrichWithLiteLLM);
+}
+
+function maxNumber(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return Math.max(a, b);
 }

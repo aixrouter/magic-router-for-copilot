@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9
+
+- Fix: Allow bundled LiteLLM metadata to expand model token and context-window capabilities above incomplete API/public catalog limits.
+
 ## 0.1.8
 
 - Fix: Honor `aixrouter.maxTokens = 0` by omitting `max_tokens` and using the provider default.
