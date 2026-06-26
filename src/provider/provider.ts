@@ -15,12 +15,13 @@ import { AIXRouterClient } from '../client/aixrouterClient.js';
 import { AIXRouterHttpError } from '../client/errors.js';
 import { convertMessages, convertTools, countSanitizedToolSchemas, estimateTokenCount, summarizeMessageParts } from '../convert.js';
 import { Logger } from '../logger.js';
-import type { AIXRouterModelConfig, ChatCompletionRequest, ChatToolCall } from '../types.js';
+import type { AIXRouterModelConfig, ChatCompletionRequest, ChatToolCall, ReasoningEffort } from '../types.js';
 import {
   toChatInfo,
   toSetupChatInfo,
   getModelRouteHint,
   getContextWindowOptions,
+  getReasoningEffortOptions,
   type ModelPickerInfo,
 } from './modelInfo.js';
 import { applyRequestCompatibility } from './requestCompatibility.js';
@@ -305,7 +306,7 @@ function isClaudeRouteHint(value: string): boolean {
 function getConfiguredReasoningEffort(
   model: AIXRouterModelConfig,
   options: ModelOptions,
-): 'low' | 'medium' | 'high' | 'max' | undefined {
+): ChatCompletionRequest['reasoning_effort'] | undefined {
   if (!model.thinking) {
     return undefined;
   }
@@ -318,15 +319,18 @@ function getConfiguredReasoningEffort(
   if (configured === 'none') {
     return undefined;
   }
-  if (
-    configured === 'low' ||
-    configured === 'medium' ||
-    configured === 'high' ||
-    configured === 'max'
-  ) {
+  if (!isReasoningEffort(configured)) {
+    return 'high';
+  }
+  const supported = getReasoningEffortOptions(model);
+  if (supported.includes(configured)) {
     return configured;
   }
-  return 'medium';
+  return supported.includes('high') ? 'high' : supported[0] ?? undefined;
+}
+
+function isReasoningEffort(value: unknown): value is ReasoningEffort {
+  return value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh' || value === 'max';
 }
 
 function getConfiguredContextWindow(

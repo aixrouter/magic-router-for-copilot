@@ -1,7 +1,23 @@
 import * as vscode from 'vscode';
-import type { AIXRouterModelConfig } from '../types.js';
+import type { AIXRouterModelConfig, ReasoningEffort } from '../types.js';
 import { toModelCostInfo } from '../models/pricing.js';
 import { getReasoningEffort } from '../config.js';
+
+const DEFAULT_REASONING_EFFORTS: readonly ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra High',
+  max: 'Max',
+};
+const REASONING_EFFORT_DESCRIPTIONS: Record<ReasoningEffort, string> = {
+  low: 'Faster responses with less reasoning',
+  medium: 'Balanced reasoning and speed',
+  high: 'Greater reasoning depth but slower',
+  xhigh: 'Extra reasoning depth for complex tasks',
+  max: 'Absolute maximum capability with no constraints',
+};
 
 type ModelPickerInfo = vscode.LanguageModelChatInformation & {
   readonly isBYOK?: true;
@@ -95,13 +111,13 @@ export function formatContextWindow(value: number): string {
 function toConfigurationSchema(model: AIXRouterModelConfig): { configurationSchema?: object } {
   const properties: Record<string, object> = {};
 
+  if (model.thinking) {
+    properties.reasoningEffort = buildReasoningEffortProperty(model);
+  }
+
   const contextWindows = getContextWindowOptions(model);
   if (contextWindows.length > 0) {
     properties.contextWindow = buildContextWindowProperty(contextWindows);
-  }
-
-  if (model.thinking) {
-    properties.reasoningEffort = buildReasoningEffortProperty();
   }
 
   return Object.keys(properties).length > 0
@@ -109,21 +125,29 @@ function toConfigurationSchema(model: AIXRouterModelConfig): { configurationSche
     : {};
 }
 
-function buildReasoningEffortProperty(): object {
+function buildReasoningEffortProperty(model: AIXRouterModelConfig): object {
+  const efforts = getReasoningEffortOptions(model);
+  const configuredDefault = getReasoningEffort();
+  const defaultValue = efforts.includes(configuredDefault) ? configuredDefault : efforts[0] ?? 'high';
+
   return {
     type: 'string',
     title: '思考工作量',
-    enum: ['low', 'medium', 'high', 'max'],
-    enumItemLabels: ['Low', 'Medium', 'High', 'Max'],
-    enumDescriptions: [
-      'Faster responses with less reasoning',
-      'Balanced reasoning and speed',
-      'Greater reasoning depth but slower',
-      'Absolute maximum capability with no constraints',
-    ],
-    default: getReasoningEffort(),
+    enum: efforts,
+    enumItemLabels: efforts.map((effort) => REASONING_EFFORT_LABELS[effort]),
+    enumDescriptions: efforts.map((effort) => REASONING_EFFORT_DESCRIPTIONS[effort]),
+    default: defaultValue,
     group: 'navigation',
   };
+}
+
+export function getReasoningEffortOptions(model: AIXRouterModelConfig): readonly ReasoningEffort[] {
+  const configured = model.supportsReasoningEffort?.filter(isReasoningEffort) ?? [];
+  return configured.length > 0 ? [...new Set(configured)] : DEFAULT_REASONING_EFFORTS;
+}
+
+function isReasoningEffort(value: unknown): value is ReasoningEffort {
+  return value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh' || value === 'max';
 }
 
 function buildContextWindowProperty(contextWindows: number[]): object {
@@ -138,6 +162,5 @@ function buildContextWindowProperty(contextWindows: number[]): object {
       ...contextWindows.map((value) => `${formatContextWindow(value)} context budget`),
     ],
     default: contextWindows.at(-1)?.toString() ?? 'default',
-    group: 'navigation',
   };
 }

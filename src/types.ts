@@ -8,6 +8,7 @@ export interface AIXRouterModelConfig {
   readonly toolCalling?: boolean;
   readonly vision?: boolean;
   readonly thinking?: boolean;
+  readonly supportsReasoningEffort?: readonly ReasoningEffort[];
   readonly contextWindows?: number[];
   readonly sourceType?: string;
   readonly pricing?: AIXRouterPricing;
@@ -51,10 +52,12 @@ export interface ChatCompletionRequest {
   readonly max_tokens?: number;
   readonly context_window?: number;
   readonly temperature?: number;
-  readonly reasoning_effort?: 'low' | 'medium' | 'high' | 'max';
+  readonly reasoning_effort?: ReasoningEffort;
 }
 
 export type RequestCompatibilityMode = 'stable' | 'full';
+
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export type ChatMessage =
   | {

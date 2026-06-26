@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { AIXRouterModelConfig, RequestCompatibilityMode } from './types';
+import type { AIXRouterModelConfig, ReasoningEffort, RequestCompatibilityMode } from './types';
 
 const SECTION = 'aixrouter';
 const DEFAULT_BASE_URL = 'https://api.aixrouter.com';
@@ -57,8 +57,9 @@ export function getTemperature(): number | undefined {
   return typeof value === 'number' ? value : undefined;
 }
 
-export function getReasoningEffort(): 'low' | 'medium' | 'high' | 'max' {
-  return getConfig().get<'low' | 'medium' | 'high' | 'max'>('reasoningEffort', 'high');
+export function getReasoningEffort(): ReasoningEffort {
+  const value = getConfig().get<ReasoningEffort>('reasoningEffort', 'high');
+  return isReasoningEffort(value) ? value : 'high';
 }
 
 export function getDebugEnabled(): boolean {
@@ -96,4 +97,8 @@ function getConfig(): vscode.WorkspaceConfiguration {
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
+}
+
+function isReasoningEffort(value: unknown): value is ReasoningEffort {
+  return value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh' || value === 'max';
 }
