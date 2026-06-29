@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.15
+
+- Fix: Keep Claude requests on the standard Anthropic Messages payload shape without prompt cache markers for upstream compatibility.
+
 ## 0.1.13
 
 - Fix: Present upstream HTTP failures such as insufficient balance as compact VS Code language model errors without leaking internal stack traces.
