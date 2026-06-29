@@ -70,6 +70,28 @@ export function getPublicModelMetadataEnabled(): boolean {
   return getConfig().get('enrichPublicModelMetadata', true);
 }
 
+/**
+ * Whether the extension is allowed to fetch fresh metadata snapshots from
+ * remote sources (OpenRouter, our LiteLLM mirror) in the background.
+ *
+ * When disabled the extension still works from the bundled snapshot.
+ */
+export function getMetadataAutoRefreshEnabled(): boolean {
+  return getConfig().get('metadata.autoRefresh', true);
+}
+
+/** TTL (in hours) for the cached LiteLLM mirror. Defaults to 24h. */
+export function getMetadataLiteLLMRefreshHours(): number {
+  const raw = getConfig().get<number>('metadata.litellmRefreshHours', 24);
+  return Number.isFinite(raw) && raw > 0 ? raw : 24;
+}
+
+/** TTL (in hours) for the cached OpenRouter catalog. Defaults to 6h. */
+export function getMetadataOpenRouterRefreshHours(): number {
+  const raw = getConfig().get<number>('metadata.openrouterRefreshHours', 6);
+  return Number.isFinite(raw) && raw > 0 ? raw : 6;
+}
+
 export function getRequestCompatibilityMode(): RequestCompatibilityMode {
   const value = getConfig().get<RequestCompatibilityMode>('compatibilityMode', 'stable');
   return value === 'full' ? 'full' : 'stable';

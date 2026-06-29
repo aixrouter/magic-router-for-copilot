@@ -6,6 +6,7 @@ import type {
 } from '../types.js';
 import { loadPublicModelEnrichment, mergePublicModelEnrichment } from '../models/pricing.js';
 import { enrichModelsWithLiteLLM } from '../models/litellmFallback.js';
+import { enrichModelsWithOpenRouter } from '../models/openrouterFallback.js';
 import { applyHeuristicFallbacks } from '../models/heuristicFallback.js';
 import { fetchJsonWithRetry, fetchWithTimeout } from './http.js';
 import { createHttpError, fetchFailedError, emptyResponseError } from './errors.js';
@@ -80,9 +81,14 @@ export class AIXRouterClient {
       ? await loadPublicModelEnrichment(this.baseUrl, signal).catch(() => new Map())
       : new Map();
     const merged = mergePublicModelEnrichment(models, enrichment);
-    // Third-tier fallback: fill remaining gaps from the bundled LiteLLM catalog.
-    const enriched = enrichModelsWithLiteLLM(merged);
-    // Fourth-tier fallback: name-based heuristics for anything still missing.
+    // Third tier: enrich from the cached OpenRouter snapshot (refreshed every
+    // few hours so newly released models pick up correct token limits and
+    // capability flags without waiting for an extension update).
+    const withOpenRouter = enrichModelsWithOpenRouter(merged);
+    // Fourth tier: fill remaining gaps from the LiteLLM catalog. Prefers the
+    // runtime-refreshed mirror, falling back to the bundled snapshot.
+    const enriched = enrichModelsWithLiteLLM(withOpenRouter);
+    // Fifth tier: name-based heuristics for anything still missing.
     return applyHeuristicFallbacks(enriched);
   }
 

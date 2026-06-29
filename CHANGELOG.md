@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.23
+
+- Feature: Add a runtime metadata refresh layer. The extension now keeps a background-refreshed snapshot of the OpenRouter `/api/v1/models` catalog (default every 6 h) and our published LiteLLM mirror (default every 24 h) in `globalState`, so newly released models pick up correct token limits, vision/tool/reasoning flags, and context-window options without an extension update. The bundled LiteLLM snapshot remains the offline fallback.
+- Feature: After a successful background refresh, the model picker is automatically refreshed via `onDidChangeLanguageModelChatInformation` — no manual reload needed.
+- Feature: Add settings `aixrouter.metadata.autoRefresh` (default `true`), `aixrouter.metadata.openrouterRefreshHours` (default `6`), and `aixrouter.metadata.litellmRefreshHours` (default `24`) to control the new behavior. Disable autoRefresh to run fully offline against the bundled snapshot.
+- Feature: New command `AIXRouter: Force Refresh Model Metadata (LiteLLM + OpenRouter + AIXRouter)` — bypasses TTL and `If-None-Match`/`If-Modified-Since` to immediately re-fetch both remote snapshots and reload the AIXRouter model list, useful when a brand-new model was just published.
+- Internal: Refactor `enrichWithLiteLLM` into a reusable `enrichModelFromEntries` helper shared by the LiteLLM and OpenRouter enrichment tiers; track sources via expanded `ModelMetadataSource` tags (`openrouter`, `litellmRemote`).
+- Test: Add `parseOpenRouterResponse` coverage for vendor-prefix stripping, capability parameter detection, and id deduplication.
+
 ## 0.1.22
 
 - Fix: Restore the context-window picker (200K / 400K / 1M) for Claude/Gemini/GPT-5 family models when the AIXRouter API reports no `context_length` and LiteLLM enrichment is unavailable — the heuristic fallback no longer collapses the option list with a stale 128K default.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { toClaudeMessageRequest, toClaudeThinking } from '../../src/client/claude.js';
 import { applyRequestCompatibility } from '../../src/provider/requestCompatibility.js';
+import type { ChatCompletionRequest } from '../../src/types.js';
 
 describe('toClaudeThinking', () => {
   it('maps xhigh reasoning effort between high and max budgets', () => {
@@ -11,7 +12,7 @@ describe('toClaudeThinking', () => {
 });
 
 describe('toClaudeMessageRequest', () => {
-  const request = {
+  const request: ChatCompletionRequest = {
       model: 'claude-sonnet-4.5',
       messages: [
         { role: 'system', content: 'be concise' },
@@ -31,7 +32,7 @@ describe('toClaudeMessageRequest', () => {
       temperature: 0.7,
       context_window: 200000,
       reasoning_effort: 'high',
-    } as const;
+    };
 
   it('maps stable chat completion fields to the Claude Messages API shape', () => {
     const result = toClaudeMessageRequest(applyRequestCompatibility(request, 'stable').request, true);

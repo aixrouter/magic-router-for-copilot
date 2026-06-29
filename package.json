@@ -2,7 +2,7 @@
   "name": "aixrouter-for-copilot",
   "displayName": "AIXRouter for Copilot",
   "description": "Use AIXRouter models directly from the GitHub Copilot Chat model picker. BYOK, vision-capable models, thinking mode, and agent tools.",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "packageManager": "pnpm@9.15.9",
   "publisher": "aixrouter",
   "icon": "resources/icon.png",
@@ -63,6 +63,10 @@
       {
         "command": "aixrouter.refreshModels",
         "title": "AIXRouter: Refresh Models"
+      },
+      {
+        "command": "aixrouter.forceRefreshMetadata",
+        "title": "AIXRouter: Force Refresh Model Metadata (LiteLLM + OpenRouter + AIXRouter)"
       },
       {
         "command": "aixrouter.openSettings",
@@ -172,6 +176,23 @@
           "type": "boolean",
           "default": true,
           "description": "Enrich model metadata from the public AIXRouter model catalog for supported AIXRouter and AgileRouter base URLs."
+        },
+        "aixrouter.metadata.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Periodically refresh model capability snapshots from OpenRouter and the bundled LiteLLM mirror so newly released models show up without an extension update. Disable to run fully offline."
+        },
+        "aixrouter.metadata.litellmRefreshHours": {
+          "type": "number",
+          "default": 24,
+          "minimum": 1,
+          "description": "How often (in hours) to refresh the LiteLLM metadata snapshot. Only used when 'aixrouter.metadata.autoRefresh' is enabled."
+        },
+        "aixrouter.metadata.openrouterRefreshHours": {
+          "type": "number",
+          "default": 6,
+          "minimum": 1,
+          "description": "How often (in hours) to refresh the OpenRouter model catalog snapshot. Only used when 'aixrouter.metadata.autoRefresh' is enabled."
         },
         "aixrouter.compatibilityMode": {
           "type": "string",

@@ -10,12 +10,18 @@ import {
   getReasoningEffort,
   getRequestCompatibilityMode,
   getTemperature,
+  getMetadataAutoRefreshEnabled,
+  getMetadataLiteLLMRefreshHours,
+  getMetadataOpenRouterRefreshHours,
 } from '../config.js';
 import { AIXRouterClient } from '../client/aixrouterClient.js';
 import { AIXRouterHttpError } from '../client/errors.js';
 import { convertMessages, convertTools, countSanitizedToolSchemas, estimateTokenCount, summarizeMessageParts } from '../convert.js';
 import { Logger } from '../logger.js';
 import type { AIXRouterModelConfig, ChatCompletionRequest, ChatToolCall, ReasoningEffort } from '../types.js';
+import { scheduleLiteLLMRefresh, enrichModelsWithLiteLLM } from '../models/litellmFallback.js';
+import { scheduleOpenRouterRefresh, enrichModelsWithOpenRouter } from '../models/openrouterFallback.js';
+import { applyHeuristicFallbacks } from '../models/heuristicFallback.js';
 import {
   toChatInfo,
   toSetupChatInfo,
@@ -65,7 +71,18 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
     const pinned = getPinnedModels();
 
     if (pinned.length > 0) {
-      return pinned.map((model) => toChatInfo(model, hasKey, hasUrl));
+      // Pinned models often omit capability fields (the settings UI only
+      // requires `id`). Run them through the same enrichment chain we use
+      // for API-listed models so the context-window / reasoning-effort
+      // pickers still appear for newly added entries.
+      if (getMetadataAutoRefreshEnabled()) {
+        scheduleOpenRouterRefresh(getMetadataOpenRouterRefreshHours() * 3_600_000);
+        scheduleLiteLLMRefresh(getMetadataLiteLLMRefreshHours() * 3_600_000);
+      }
+      const withOpenRouter = enrichModelsWithOpenRouter(pinned);
+      const enriched = enrichModelsWithLiteLLM(withOpenRouter);
+      const finalized = applyHeuristicFallbacks(enriched);
+      return finalized.map((model) => toChatInfo(model, hasKey, hasUrl));
     }
 
     if (!hasUrl || !hasKey) {
@@ -165,6 +182,15 @@ export class AIXRouterChatProvider implements vscode.LanguageModelChatProvider {
 
     const abort = new AbortController();
     const disposable = token.onCancellationRequested(() => abort.abort());
+
+    // Fire-and-forget refresh of remote metadata snapshots. Returns
+    // immediately if the cache is still fresh or auto-refresh is disabled.
+    // Successful refreshes fire `onMetadataChanged`, which the extension
+    // host wires back into `refreshModelPicker()`.
+    if (getMetadataAutoRefreshEnabled()) {
+      scheduleOpenRouterRefresh(getMetadataOpenRouterRefreshHours() * 3_600_000);
+      scheduleLiteLLMRefresh(getMetadataLiteLLMRefreshHours() * 3_600_000);
+    }
 
     try {
       const models = await new AIXRouterClient(baseUrl, apiKey, getPublicModelMetadataEnabled()).listModels(abort.signal);

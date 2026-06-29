@@ -7,6 +7,16 @@ vi.mock('vscode', () => ({
       fsPath: parts.map((part) => typeof part === 'string' ? part : part.fsPath ?? '').join('/'),
     }),
   },
+  EventEmitter: class {
+    private listeners: Array<(value: unknown) => void> = [];
+    event = (listener: (value: unknown) => void) => {
+      this.listeners.push(listener);
+      return { dispose: () => { this.listeners = this.listeners.filter((l) => l !== listener); } };
+    };
+    fire = (value: unknown) => { for (const l of this.listeners) l(value); };
+    dispose = () => { this.listeners = []; };
+  },
+  extensions: { getExtension: () => undefined },
 }));
 
 const { AIXRouterClient } = await import('../../src/client/aixrouterClient.js');

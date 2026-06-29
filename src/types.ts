@@ -21,19 +21,29 @@ export interface AIXRouterModelConfig {
  * Tracks where each model capability value came from.
  *
  * Tiers (in priority order):
- *   api           — returned directly by the AIXRouter /openai/v1/models endpoint
- *   publicCatalog — from the AIXRouter public model catalog (pricing/family)
- *   litellm       — from the bundled LiteLLM community metadata
- *   heuristic     — name-based fallback defaults
+ *   api            — returned directly by the AIXRouter /openai/v1/models endpoint
+ *   publicCatalog  — from the AIXRouter public model catalog (pricing/family)
+ *   openrouter     — from a cached snapshot of the OpenRouter /v1/models API
+ *   litellmRemote  — from the latest cached snapshot of our published LiteLLM JSON
+ *   litellm        — from the bundled LiteLLM community metadata (offline)
+ *   heuristic      — name-based fallback defaults
  */
 export interface ModelMetadataSources {
-  readonly maxInputTokens?: 'api' | 'publicCatalog' | 'litellm' | 'heuristic';
-  readonly maxOutputTokens?: 'api' | 'publicCatalog' | 'litellm' | 'heuristic';
-  readonly toolCalling?: 'api' | 'publicCatalog' | 'litellm' | 'heuristic';
-  readonly vision?: 'api' | 'publicCatalog' | 'litellm' | 'heuristic';
-  readonly thinking?: 'api' | 'publicCatalog' | 'litellm' | 'heuristic';
-  readonly contextWindows?: 'api' | 'publicCatalog' | 'litellm' | 'heuristic';
+  readonly maxInputTokens?: ModelMetadataSource;
+  readonly maxOutputTokens?: ModelMetadataSource;
+  readonly toolCalling?: ModelMetadataSource;
+  readonly vision?: ModelMetadataSource;
+  readonly thinking?: ModelMetadataSource;
+  readonly contextWindows?: ModelMetadataSource;
 }
+
+export type ModelMetadataSource =
+  | 'api'
+  | 'publicCatalog'
+  | 'openrouter'
+  | 'litellmRemote'
+  | 'litellm'
+  | 'heuristic';
 
 export interface AIXRouterPricing {
   readonly currencyCode?: string;

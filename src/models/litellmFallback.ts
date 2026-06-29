@@ -1,8 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { AIXRouterModelConfig, ModelMetadataSources } from '../types.js';
+import type { AIXRouterModelConfig, ModelMetadataSource, ModelMetadataSources } from '../types.js';
 import { getContextWindows } from './modelUtils.js';
+import { getCachedData, scheduleRefresh } from './metadataCache.js';
 import {
   type LiteLLMModelEntry,
   parseLiteLLMId,
@@ -32,8 +33,71 @@ interface LiteLLMMetadataFile {
   readonly models: LiteLLMModelEntry[];
 }
 
-let cachedEntries: LiteLLMModelEntry[] | undefined;
-let cacheLoadFailed = false;
+/** globalState key for the runtime LiteLLM mirror cache. */
+export const LITELLM_REMOTE_CACHE_KEY = 'aixrouter.metadata.litellm.v1';
+
+/** Default URL we mirror at runtime (our own synced compact snapshot). */
+export const LITELLM_REMOTE_URL =
+  'https://raw.githubusercontent.com/huangonce/aixrouter-for-copilot/main/resources/model-metadata.json';
+
+let cachedBundledEntries: LiteLLMModelEntry[] | undefined;
+let bundledCacheLoadFailed = false;
+
+/**
+ * Schedules a fire-and-forget runtime refresh of our hosted LiteLLM mirror.
+ *
+ * Safe to call on every `listModels()`; the cache layer enforces TTL and
+ * coalesces concurrent calls. Pass `force = true` to bypass TTL/ETag for a
+ * user-initiated full refresh; returns the inflight Promise when a fetch is
+ * actually performed.
+ */
+export function scheduleLiteLLMRefresh(ttlMs: number, force = false): Promise<void> | undefined {
+  return scheduleRefresh<LiteLLMModelEntry[]>(
+    {
+      key: LITELLM_REMOTE_CACHE_KEY,
+      url: LITELLM_REMOTE_URL,
+      ttlMs,
+      label: 'litellm-remote',
+      parse: (body) => {
+        const data = JSON.parse(body) as LiteLLMMetadataFile;
+        return Array.isArray(data?.models) ? data.models : [];
+      },
+    },
+    { force },
+  );
+}
+
+/**
+ * Returns the best LiteLLM catalog currently available.
+ *
+ * Preference order: runtime cache (freshest) → bundled snapshot (offline-safe).
+ * Both layers are union-merged so a partial remote refresh never reduces
+ * coverage below the bundled fallback.
+ */
+function getEntries(): { entries: LiteLLMModelEntry[]; remoteSource: boolean } {
+  const remote = getCachedData<LiteLLMModelEntry[]>(LITELLM_REMOTE_CACHE_KEY) ?? [];
+  const bundled = getBundledEntries();
+  if (remote.length === 0) {
+    return { entries: bundled, remoteSource: false };
+  }
+  if (bundled.length === 0) {
+    return { entries: remote, remoteSource: true };
+  }
+  // Remote first so duplicates (matched by id) prefer the fresher record.
+  const seen = new Set<string>();
+  const merged: LiteLLMModelEntry[] = [];
+  for (const entry of remote) {
+    if (!entry?.id || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    merged.push(entry);
+  }
+  for (const entry of bundled) {
+    if (!entry?.id || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    merged.push(entry);
+  }
+  return { entries: merged, remoteSource: true };
+}
 
 /**
  * Loads and caches the bundled LiteLLM metadata. The file is read once per
@@ -44,9 +108,9 @@ let cacheLoadFailed = false;
  * non-standard hosts), which would silently leave the catalog empty and
  * downgrade every model to the heuristic fallback.
  */
-function getEntries(): LiteLLMModelEntry[] {
-  if (cachedEntries || cacheLoadFailed) {
-    return cachedEntries ?? [];
+function getBundledEntries(): LiteLLMModelEntry[] {
+  if (cachedBundledEntries || bundledCacheLoadFailed) {
+    return cachedBundledEntries ?? [];
   }
 
   const candidates = resolveMetadataPaths();
@@ -54,14 +118,14 @@ function getEntries(): LiteLLMModelEntry[] {
     try {
       const text = fs.readFileSync(filePath, 'utf8');
       const data = JSON.parse(text) as LiteLLMMetadataFile;
-      cachedEntries = data.models ?? [];
-      return cachedEntries;
+      cachedBundledEntries = data.models ?? [];
+      return cachedBundledEntries;
     } catch {
       // Try the next candidate.
     }
   }
 
-  cacheLoadFailed = true;
+  bundledCacheLoadFailed = true;
   return [];
 }
 
@@ -101,7 +165,24 @@ function resolveMetadataPaths(): string[] {
  * knows a larger model capability. It never lowers platform-provided values.
  */
 export function enrichWithLiteLLM(model: AIXRouterModelConfig): AIXRouterModelConfig {
-  const entry = findLiteLLMEntry(model.id, model.family, getEntries());
+  const { entries, remoteSource } = getEntries();
+  return enrichModelFromEntries(model, entries, remoteSource ? 'litellmRemote' : 'litellm');
+}
+
+/**
+ * Generic enrichment helper used by both LiteLLM and OpenRouter fallbacks.
+ *
+ * Both sources export the same {@link LiteLLMModelEntry} shape, so the merge
+ * logic is identical aside from the {@link ModelMetadataSource} tag we record
+ * for diagnostics.
+ */
+export function enrichModelFromEntries(
+  model: AIXRouterModelConfig,
+  entries: LiteLLMModelEntry[],
+  tier: ModelMetadataSource,
+): AIXRouterModelConfig {
+  if (entries.length === 0) return model;
+  const entry = findLiteLLMEntry(model.id, model.family, entries);
   if (!entry) return model;
 
   const maxInputTokens = maxNumber(model.maxInputTokens, entry.maxInputTokens);
@@ -112,14 +193,14 @@ export function enrichWithLiteLLM(model: AIXRouterModelConfig): AIXRouterModelCo
 
   const sources: ModelMetadataSources = {
     ...model.metadataSources,
-    maxInputTokens: pickSource(model.metadataSources?.maxInputTokens, 'litellm', model.maxInputTokens !== maxInputTokens),
-    maxOutputTokens: pickSource(model.metadataSources?.maxOutputTokens, 'litellm', model.maxOutputTokens !== maxOutputTokens),
-    toolCalling: pickSource(model.metadataSources?.toolCalling, 'litellm', model.toolCalling !== true && entry.toolCalling === true),
-    vision: pickSource(model.metadataSources?.vision, 'litellm', model.vision !== true && entry.vision === true),
-    thinking: pickSource(model.metadataSources?.thinking, 'litellm', model.thinking !== true && entry.reasoning === true),
+    maxInputTokens: pickSource(model.metadataSources?.maxInputTokens, tier, model.maxInputTokens !== maxInputTokens),
+    maxOutputTokens: pickSource(model.metadataSources?.maxOutputTokens, tier, model.maxOutputTokens !== maxOutputTokens),
+    toolCalling: pickSource(model.metadataSources?.toolCalling, tier, model.toolCalling !== true && entry.toolCalling === true),
+    vision: pickSource(model.metadataSources?.vision, tier, model.vision !== true && entry.vision === true),
+    thinking: pickSource(model.metadataSources?.thinking, tier, model.thinking !== true && entry.reasoning === true),
   };
 
-  // Recompute context windows if LiteLLM expanded the known max input.
+  // Recompute context windows if the source expanded the known max input.
   let contextWindows = model.contextWindows;
   let contextWindowsSource = model.metadataSources?.contextWindows;
   if (maxInputTokens !== undefined) {
@@ -130,19 +211,18 @@ export function enrichWithLiteLLM(model: AIXRouterModelConfig): AIXRouterModelCo
       .sort((a, b) => a - b);
     if (mergedWindows.length > 0) {
       contextWindows = mergedWindows as number[];
-      // If LiteLLM added new window options that weren't there before
-      const hadAll = windows.every(w => (model.contextWindows ?? []).includes(w));
+      const hadAll = windows.every((w) => (model.contextWindows ?? []).includes(w));
       if (!hadAll) {
-        contextWindowsSource = pickSource(model.metadataSources?.contextWindows, 'litellm', true);
+        contextWindowsSource = pickSource(model.metadataSources?.contextWindows, tier, true);
       }
     } else {
       contextWindows = undefined;
     }
   }
 
-  // Pricing is intentionally NOT filled from LiteLLM — different providers
-  // have very different prices, and the AIXRouter public catalog is the
-  // authoritative source for platform pricing.
+  // Pricing is intentionally NOT filled from external sources — different
+  // providers price the same model very differently, and the AIXRouter
+  // public catalog is the authoritative source for platform pricing.
 
   return {
     ...model,
@@ -163,7 +243,10 @@ export function enrichWithLiteLLM(model: AIXRouterModelConfig): AIXRouterModelCo
  * Batch-enriches a model list. See {@link enrichWithLiteLLM}.
  */
 export function enrichModelsWithLiteLLM(models: AIXRouterModelConfig[]): AIXRouterModelConfig[] {
-  return models.map(enrichWithLiteLLM);
+  const { entries, remoteSource } = getEntries();
+  if (entries.length === 0) return models;
+  const tier: ModelMetadataSource = remoteSource ? 'litellmRemote' : 'litellm';
+  return models.map((model) => enrichModelFromEntries(model, entries, tier));
 }
 
 function maxNumber(a: number | undefined, b: number | undefined): number | undefined {
@@ -176,10 +259,10 @@ function maxNumber(a: number | undefined, b: number | undefined): number | undef
  * Returns the new source tier if a field changed, otherwise keeps the existing one.
  */
 function pickSource(
-  existing: ModelMetadataSources[keyof ModelMetadataSources],
-  tier: NonNullable<ModelMetadataSources[keyof ModelMetadataSources]>,
+  existing: ModelMetadataSource | undefined,
+  tier: ModelMetadataSource,
   changed: boolean,
-): ModelMetadataSources[keyof ModelMetadataSources] {
+): ModelMetadataSource | undefined {
   if (changed) return tier;
   return existing;
 }
