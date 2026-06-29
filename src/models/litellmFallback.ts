@@ -38,28 +38,60 @@ let cacheLoadFailed = false;
 /**
  * Loads and caches the bundled LiteLLM metadata. The file is read once per
  * extension session; on failure it is never retried so we don't spam the FS.
+ *
+ * Tries multiple lookup strategies because `vscode.extensions.getExtension`
+ * may transiently return `undefined` (e.g. during early activation or in
+ * non-standard hosts), which would silently leave the catalog empty and
+ * downgrade every model to the heuristic fallback.
  */
 function getEntries(): LiteLLMModelEntry[] {
   if (cachedEntries || cacheLoadFailed) {
     return cachedEntries ?? [];
   }
 
-  try {
-    const extension = vscode.extensions.getExtension('aixrouter.aixrouter-for-copilot');
-    if (!extension) {
-      cacheLoadFailed = true;
-      return [];
+  const candidates = resolveMetadataPaths();
+  for (const filePath of candidates) {
+    try {
+      const text = fs.readFileSync(filePath, 'utf8');
+      const data = JSON.parse(text) as LiteLLMMetadataFile;
+      cachedEntries = data.models ?? [];
+      return cachedEntries;
+    } catch {
+      // Try the next candidate.
     }
-    const filePath = path.join(extension.extensionPath, 'resources', 'model-metadata.json');
-    const text = fs.readFileSync(filePath, 'utf8');
-    const data = JSON.parse(text) as LiteLLMMetadataFile;
-    cachedEntries = data.models ?? [];
-  } catch {
-    cacheLoadFailed = true;
-    return [];
   }
 
-  return cachedEntries;
+  cacheLoadFailed = true;
+  return [];
+}
+
+/**
+ * Builds the ordered list of locations where the bundled LiteLLM catalog may
+ * live. The first hit wins.
+ */
+function resolveMetadataPaths(): string[] {
+  const paths: string[] = [];
+
+  try {
+    const extension = vscode.extensions.getExtension('aixrouter.aixrouter-for-copilot');
+    if (extension) {
+      paths.push(path.join(extension.extensionPath, 'resources', 'model-metadata.json'));
+    }
+  } catch {
+    // `vscode.extensions` may not be available in all hosts.
+  }
+
+  // Fallback: resolve relative to this compiled file (out/models/...).
+  // Output is CommonJS, so `__dirname` is available.
+  try {
+    if (typeof __dirname === 'string') {
+      paths.push(path.join(__dirname, '..', '..', 'resources', 'model-metadata.json'));
+    }
+  } catch {
+    // `__dirname` may not exist under exotic loaders.
+  }
+
+  return paths;
 }
 
 /**

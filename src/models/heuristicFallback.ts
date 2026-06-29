@@ -1,5 +1,5 @@
 import type { AIXRouterModelConfig, ModelMetadataSources } from '../types.js';
-import { getContextWindows } from './modelUtils.js';
+import { getContextWindows, inferMaxContextWindow } from './modelUtils.js';
 
 /**
  * Applies name-based heuristics as a last-resort fallback.
@@ -11,7 +11,12 @@ export function applyHeuristicFallbacks(models: AIXRouterModelConfig[]): AIXRout
   return models.map((model) => {
     const modelText = normalizeModelText(model);
 
-    const maxInputTokens = model.maxInputTokens ?? 128000;
+    // When upstream data is missing, infer the maximum context size from the
+    // model name (e.g. Claude/Gemini/GPT-5 families support 1M tokens).
+    // Falling back to a flat 128K under-reports modern model capabilities and
+    // causes the picker to drop valid context options.
+    const inferredMaxInput = inferMaxContextWindow(modelText);
+    const maxInputTokens = model.maxInputTokens ?? Math.max(inferredMaxInput, 128000);
     const maxOutputTokens = model.maxOutputTokens ?? 8192;
     const toolCalling = model.toolCalling ?? true;
     const vision =
@@ -22,10 +27,14 @@ export function applyHeuristicFallbacks(models: AIXRouterModelConfig[]): AIXRout
       model.thinking !== undefined
         ? model.thinking
         : looksThinkingCapable(modelText);
+    // `getContextWindows` already caps by the inferred family max and the API
+    // value (whichever is larger). Re-filtering by `maxInputTokens` strips out
+    // legitimate options when the API didn't report a value and we fall back
+    // to a conservative default.
     const contextWindows =
       model.contextWindows && model.contextWindows.length > 0
         ? model.contextWindows
-        : getContextWindows(modelText, maxInputTokens).filter((w) => w <= maxInputTokens);
+        : getContextWindows(modelText, maxInputTokens);
 
     const sources: ModelMetadataSources = {
       ...model.metadataSources,

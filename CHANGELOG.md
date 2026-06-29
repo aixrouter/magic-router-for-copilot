@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.22
+
+- Fix: Restore the context-window picker (200K / 400K / 1M) for Claude/Gemini/GPT-5 family models when the AIXRouter API reports no `context_length` and LiteLLM enrichment is unavailable — the heuristic fallback no longer collapses the option list with a stale 128K default.
+- Improve: Make the bundled LiteLLM metadata loader resilient — if `vscode.extensions.getExtension(...)` returns `undefined` (early activation / non-standard hosts), fall back to resolving `resources/model-metadata.json` relative to the compiled module so capability data is still available.
+- Test: Add regression coverage for `claude-sonnet-4.6` / `gemini-3-pro` context-window inference in the heuristic fallback path.
+
 ## 0.1.21
 
 - Improve: Add a third Claude cache breakpoint on the latest user message so prompt caching is owned by the extension rather than implicit upstream behavior.
