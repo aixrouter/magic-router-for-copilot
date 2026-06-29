@@ -9,6 +9,100 @@ export class AIXRouterHttpError extends Error {
   }
 }
 
+export interface UpstreamErrorPayload {
+  readonly code?: string;
+  readonly message?: string;
+  readonly type?: string;
+  readonly param?: string;
+  readonly requestId?: string;
+}
+
+/**
+ * Thrown when an AIXRouter response (HTTP 200 itself, but the stream or body
+ * carries a provider-side error frame, e.g. an SSE `data: {"error":{...}}`
+ * payload). Carries enough metadata for the retry logic to decide whether to
+ * back off (rate limits) vs. retry (transient empty stream).
+ */
+export class AIXRouterUpstreamError extends Error {
+  readonly code?: string;
+  readonly errorType?: string;
+  readonly requestId?: string;
+  readonly param?: string;
+  readonly rateLimited: boolean;
+
+  constructor(prefix: string, payload: UpstreamErrorPayload) {
+    super(formatUpstreamMessage(prefix, payload));
+    this.name = 'AIXRouterUpstreamError';
+    this.code = payload.code;
+    this.errorType = payload.type;
+    this.requestId = payload.requestId;
+    this.param = payload.param;
+    this.rateLimited = isRateLimitPayload(payload);
+  }
+}
+
+/**
+ * Try to extract an upstream error from a parsed JSON value. Returns
+ * `undefined` if the shape is not a recognised error payload.
+ */
+export function parseUpstreamErrorPayload(json: unknown): UpstreamErrorPayload | undefined {
+  if (!json || typeof json !== 'object') {
+    return undefined;
+  }
+  const obj = json as Record<string, unknown>;
+  const err = obj.error;
+  if (!err || typeof err !== 'object') {
+    return undefined;
+  }
+
+  const e = err as Record<string, unknown>;
+  const message = stringFrom(e.message);
+  const code = stringFrom(e.code);
+  const type = stringFrom(e.type);
+  const param = stringFrom(e.param);
+  const requestId = stringFrom(obj.request_id) ?? stringFrom(e.request_id);
+
+  if (!message && !code && !type) {
+    return undefined;
+  }
+
+  return { code, message, type, param, requestId };
+}
+
+function isRateLimitPayload(payload: UpstreamErrorPayload): boolean {
+  const code = payload.code?.toLowerCase();
+  const type = payload.type?.toLowerCase();
+  if (type === 'rate_limit_error' || type === 'rate_limit') {
+    return true;
+  }
+  if (code === 'limited' || code === 'rate_limited' || code === 'rate_limit_exceeded') {
+    return true;
+  }
+  return false;
+}
+
+function formatUpstreamMessage(prefix: string, payload: UpstreamErrorPayload): string {
+  const parts: string[] = [];
+  if (payload.message) {
+    parts.push(payload.message);
+  }
+  const meta: string[] = [];
+  if (payload.code) {
+    meta.push(`code=${payload.code}`);
+  }
+  if (payload.type) {
+    meta.push(`type=${payload.type}`);
+  }
+  if (payload.requestId) {
+    meta.push(`request_id=${payload.requestId}`);
+  }
+  if (meta.length) {
+    parts.push(`(${meta.join(' ')})`);
+  }
+  const detail = parts.join(' ') || 'unknown upstream error';
+  return `${prefix}: ${detail}`;
+}
+
 export async function createHttpError(prefix: string, response: Response): Promise<Error> {
   const body = await response.text().catch(() => '');
   const details = [

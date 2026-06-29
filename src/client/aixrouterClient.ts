@@ -9,7 +9,7 @@ import { enrichModelsWithLiteLLM } from '../models/litellmFallback.js';
 import { enrichModelsWithOpenRouter } from '../models/openrouterFallback.js';
 import { applyHeuristicFallbacks } from '../models/heuristicFallback.js';
 import { fetchJsonWithRetry, fetchWithTimeout } from './http.js';
-import { createHttpError, fetchFailedError, emptyResponseError } from './errors.js';
+import { AIXRouterUpstreamError, createHttpError, fetchFailedError, emptyResponseError } from './errors.js';
 import { getContextWindows, numberFrom } from '../models/modelUtils.js';
 import { processSseData, flushToolCalls, processOpenAIFullResponse } from './openai.js';
 import {
@@ -123,10 +123,23 @@ export class AIXRouterClient {
         await this.processOpenAIChatResponse(response, currentRequest, handlers, options);
         return;
       } catch (error) {
+        // Upstream rate limits / provider errors surfaced as SSE error frames
+        // must not be retried here: the same affinity-routed instance will
+        // keep rejecting and an immediate retry only makes the limit worse.
+        if (error instanceof AIXRouterUpstreamError && error.rateLimited) {
+          this.debug?.(`OpenAI upstream rate-limited model=${request.model} code=${error.code ?? 'unknown'} request_id=${error.requestId ?? 'unknown'}`);
+          throw error;
+        }
+
         if (!emptyRetryUsed && isOpenAIEmptyResponseError(error) && !options.signal?.aborted) {
           emptyRetryUsed = true;
-          this.debug?.(`OpenAI fallback reason=emptyResponse model=${request.model} messages=${request.messages.length} tools=${request.tools?.length ?? 0} stream=${currentRequest.stream}`);
-          currentRequest = { ...request, stream: currentRequest.stream };
+          const wasStream = currentRequest.stream !== false;
+          this.debug?.(`OpenAI fallback reason=emptyResponse model=${request.model} messages=${request.messages.length} tools=${request.tools?.length ?? 0} wasStream=${wasStream} -> retrying as non-stream`);
+          // Force non-streaming on retry: an empty SSE response is often a
+          // streaming-path failure on the upstream; the JSON path is usually
+          // more reliable. Without this the retry repeats the exact same
+          // request and hits the same empty stream.
+          currentRequest = { ...request, stream: false };
           continue;
         }
 
@@ -166,9 +179,9 @@ export class AIXRouterClient {
       return;
     }
 
-    const emitted = await this.processOpenAIStreamResponse(response, handlers);
+    const { emitted, preview } = await this.processOpenAIStreamResponse(response, handlers);
     if (!emitted) {
-      throw emptyResponseError('OpenAI stream', '');
+      throw emptyResponseError('OpenAI stream', preview);
     }
   }
 
@@ -187,7 +200,7 @@ export class AIXRouterClient {
   private async processOpenAIStreamResponse(
     response: Response,
     handlers: StreamHandlers,
-  ): Promise<boolean> {
+  ): Promise<{ emitted: boolean; preview: string }> {
     const reader = response.body?.getReader();
     if (!reader) {
       throw new Error('AIXRouter response body is empty.');
@@ -197,6 +210,11 @@ export class AIXRouterClient {
     const toolCalls = new Map<number, ToolCallAccumulator>();
     let buffer = '';
     let emitted = false;
+    // Accumulate the first ~1KB of the raw stream so the empty-response error
+    // can include a useful preview (e.g. provider keepalive comments, partial
+    // error frames) instead of an opaque "did not contain any assistant text".
+    let preview = '';
+    const PREVIEW_LIMIT = 1024;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -204,7 +222,11 @@ export class AIXRouterClient {
         break;
       }
 
-      buffer += decoder.decode(value, { stream: true });
+      const chunk = decoder.decode(value, { stream: true });
+      if (preview.length < PREVIEW_LIMIT) {
+        preview = (preview + chunk).slice(0, PREVIEW_LIMIT);
+      }
+      buffer += chunk;
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? '';
 
@@ -217,7 +239,7 @@ export class AIXRouterClient {
         const data = trimmed.slice('data:'.length).trim();
         if (data === '[DONE]') {
           emitted = flushToolCalls(toolCalls, handlers) || emitted;
-          return emitted;
+          return { emitted, preview };
         }
 
         emitted = processSseData(data, toolCalls, handlers) || emitted;
@@ -225,7 +247,7 @@ export class AIXRouterClient {
     }
 
     emitted = flushToolCalls(toolCalls, handlers) || emitted;
-    return emitted;
+    return { emitted, preview };
   }
 
   private async fetchChatCompletion(

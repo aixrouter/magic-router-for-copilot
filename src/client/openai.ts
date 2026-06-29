@@ -1,4 +1,5 @@
 import type { StreamHandlers, ChatToolCall } from '../types.js';
+import { AIXRouterUpstreamError, parseUpstreamErrorPayload } from './errors.js';
 
 export interface ToolCallAccumulator {
   id: string;
@@ -17,6 +18,17 @@ export function processSseData(
     json = JSON.parse(data);
   } catch {
     return false;
+  }
+
+  // Detect upstream error frames embedded in the SSE stream. AIXRouter (and
+  // some compatible gateways) report rate limits / provider failures as a
+  // `data: {"error":{...}}` frame with HTTP 200, rather than as a non-2xx
+  // response. Without this branch the frame is silently dropped and the user
+  // only sees the generic "did not contain any assistant text or tool call"
+  // error, which hides the real cause (e.g. rate_limit_error).
+  const upstreamError = parseUpstreamErrorPayload(json);
+  if (upstreamError) {
+    throw new AIXRouterUpstreamError('AIXRouter OpenAI stream returned an error', upstreamError);
   }
 
   if (json.usage) {
@@ -101,6 +113,12 @@ export async function processOpenAIFullResponse(
 
   try {
     const json = JSON.parse(body) as any;
+
+    const upstreamError = parseUpstreamErrorPayload(json);
+    if (upstreamError) {
+      throw new AIXRouterUpstreamError('AIXRouter OpenAI response returned an error', upstreamError);
+    }
+
     if (json.usage) {
       handlers.onUsage(json.usage);
     }
@@ -125,8 +143,13 @@ export async function processOpenAIFullResponse(
       applyToolCallDelta(current, rawToolCall);
       toolCalls.set(index, current);
     }
-  } catch {
-    // Fall through to the empty response error below with a body preview.
+  } catch (error) {
+    // Re-throw upstream errors so the caller can react (e.g. avoid retrying
+    // rate-limited requests). Other parse failures fall through to the empty
+    // response error below with a body preview.
+    if (error instanceof AIXRouterUpstreamError) {
+      throw error;
+    }
   }
 
   const emittedTools = [...toolCalls.values()].some((toolCall) => Boolean(toolCall.name));

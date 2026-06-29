@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.24
+
+- Fix: Surface upstream SSE error frames (e.g. `data: {"error":{"code":"limited","type":"rate_limit_error",...}}`) as a typed `AIXRouterUpstreamError` instead of silently dropping them — users previously saw only the generic `OpenAI stream did not contain any assistant text or tool call.` even when the real cause was an upstream rate limit. The error message now includes `code`, `type`, and `request_id` from the provider payload.
+- Fix: The empty-OpenAI-response retry now actually changes the request: it forces `stream: false` on the retry attempt. The previous code rebuilt the request with the original `stream` value, so the retry re-hit the same affinity-routed upstream instance and returned the same empty stream.
+- Fix: Do not retry rate-limited upstream errors (`type=rate_limit_error` / `code=limited|rate_limited|rate_limit_exceeded`) — an immediate retry against the same sticky-routed instance only makes the limit worse.
+- Improve: The empty-stream error now includes a body preview (first ~1 KB of the raw SSE stream) so keepalive comments, partial frames, or unparseable payloads are visible in the error message.
+- Test: Add `processSseData` / `processOpenAIFullResponse` upstream-error coverage and an end-to-end test that asserts an SSE `data: {"error":...}` rate-limit frame surfaces as `AIXRouterUpstreamError` with `rateLimited=true` and is not retried.
+
 ## 0.1.23
 
 - Feature: Add a runtime metadata refresh layer. The extension now keeps a background-refreshed snapshot of the OpenRouter `/api/v1/models` catalog (default every 6 h) and our published LiteLLM mirror (default every 24 h) in `globalState`, so newly released models pick up correct token limits, vision/tool/reasoning flags, and context-window options without an extension update. The bundled LiteLLM snapshot remains the offline fallback.
