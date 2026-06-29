@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.20
+
+- Improve: Apply Anthropic prompt caching breakpoints on Claude `system` block and the last `tools` entry to cut repeated per-request cost for large tool sets.
+
 ## 0.1.19
 
 - Improve: Prefix output-channel log lines with ISO timestamps for easier request tracing.

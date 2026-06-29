@@ -38,13 +38,14 @@ describe('toClaudeMessageRequest', () => {
 
     expect(result).toEqual({
       model: 'claude-sonnet-4.5',
-      system: 'be concise',
+      system: [{ type: 'text', text: 'be concise', cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
       stream: true,
       tools: [{
         name: 'lookup',
         description: 'Lookup a value',
         input_schema: { type: 'object', properties: { query: { type: 'string' } } },
+        cache_control: { type: 'ephemeral' },
       }],
       tool_choice: { type: 'auto' },
       max_tokens: 12000,
@@ -109,6 +110,26 @@ describe('toClaudeMessageRequest', () => {
 
     expect(result.messages).toEqual([
       { role: 'user', content: [{ type: 'text', text: '你好' }] },
+    ]);
+  });
+
+  it('marks only the last Claude tool with cache_control', () => {
+    const result = toClaudeMessageRequest({
+      model: 'claude-sonnet-4.5',
+      messages: [{ role: 'user', content: 'hello' }],
+      stream: true,
+      tools: [
+        { type: 'function', function: { name: 'a', parameters: {} } },
+        { type: 'function', function: { name: 'b', parameters: {} } },
+        { type: 'function', function: { name: 'c', parameters: {} } },
+      ],
+      tool_choice: 'auto',
+    }, true);
+
+    expect(result.tools).toEqual([
+      { name: 'a', description: undefined, input_schema: {} },
+      { name: 'b', description: undefined, input_schema: {} },
+      { name: 'c', description: undefined, input_schema: {}, cache_control: { type: 'ephemeral' } },
     ]);
   });
 });

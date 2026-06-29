@@ -9,7 +9,7 @@ export interface StreamState {
 export interface ClaudeMessageRequest {
   readonly model: string;
   readonly messages: ClaudeMessage[];
-  readonly system?: string;
+  readonly system?: string | ClaudeSystemBlock[];
   readonly stream: boolean;
   readonly tools?: ClaudeTool[];
   readonly tool_choice?: ClaudeToolChoice;
@@ -27,6 +27,16 @@ export interface ClaudeThinking {
   readonly budget_tokens: number;
 }
 
+export interface ClaudeCacheControl {
+  readonly type: 'ephemeral';
+}
+
+export interface ClaudeSystemBlock {
+  readonly type: 'text';
+  readonly text: string;
+  readonly cache_control?: ClaudeCacheControl;
+}
+
 export interface ClaudeMessage {
   readonly role: 'user' | 'assistant';
   readonly content: ClaudeContentBlock[];
@@ -42,6 +52,7 @@ export interface ClaudeTool {
   readonly name: string;
   readonly description?: string;
   readonly input_schema?: Record<string, unknown>;
+  readonly cache_control?: ClaudeCacheControl;
 }
 
 export function processClaudeData(
@@ -283,10 +294,11 @@ export function toClaudeMessageRequest(request: ChatCompletionRequest, stream: b
 
   const maxTokens = request.max_tokens ?? 4096;
   const thinking = toClaudeThinking(request.reasoning_effort, maxTokens);
+  const system = toClaudeSystem(systemParts);
   return {
     model: request.model,
     messages,
-    ...(systemParts.length ? { system: systemParts.join('\n\n') } : {}),
+    ...(system ? { system } : {}),
     stream,
     tools: toClaudeTools(request.tools),
     tool_choice: toClaudeToolChoice(request.tool_choice, request.tools),
@@ -367,11 +379,29 @@ export function toClaudeTools(tools: ChatCompletionRequest['tools']): ClaudeTool
     return undefined;
   }
 
-  return tools.map((tool) => ({
+  const mapped: ClaudeTool[] = tools.map((tool) => ({
     name: tool.function.name,
     description: tool.function.description,
     input_schema: tool.function.parameters,
   }));
+
+  const lastIndex = mapped.length - 1;
+  if (lastIndex >= 0) {
+    mapped[lastIndex] = { ...mapped[lastIndex], cache_control: { type: 'ephemeral' } };
+  }
+  return mapped;
+}
+
+export function toClaudeSystem(systemParts: readonly string[]): ClaudeSystemBlock[] | undefined {
+  if (!systemParts.length) {
+    return undefined;
+  }
+
+  return [{
+    type: 'text',
+    text: systemParts.join('\n\n'),
+    cache_control: { type: 'ephemeral' },
+  }];
 }
 
 export function toClaudeToolChoice(
